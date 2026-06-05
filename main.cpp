@@ -2,45 +2,47 @@
 #include <SFML/Audio.hpp>
 
 int main() {
-    sf::RenderWindow ventana(sf::VideoMode(800, 600), "Diseña tu auto de carreras");
+    sf::RenderWindow ventana(sf::VideoMode({800, 600}), "Diseña tu auto de carreras");
 
     sf::Texture fondoTex;
-    fondoTex.loadFromFile("recursos/intro.png");
+    fondoTex.openFromFile("recursos/intro.png");
     sf::Sprite fondo(fondoTex);
 
     sf::Font fuente;
-    fuente.loadFromFile("recursos/arial.ttf");
+    fuente.openFromFile("recursos/arial.ttf");
 
-    sf::Text titulo("Diseña tu auto de carreras", fuente, 50);
+    sf::Text titulo(fuente, "Diseña tu auto de carreras", 50);
     titulo.setFillColor(sf::Color::White);
     titulo.setStyle(sf::Text::Bold);
-    titulo.setPosition(100, 150);
+    titulo.setPosition({100.f, 150.f});
 
-    sf::Text botonPlay("PLAY", fuente, 40);
+    sf::Text botonPlay(fuente, "PLAY", 40);
     botonPlay.setFillColor(sf::Color::Yellow);
-    botonPlay.setPosition(350, 400);
+    botonPlay.setPosition({350.f, 400.f});
 
     sf::Music musica;
     if (musica.openFromFile("recursos/musica_intro.ogg")) {
-        musica.setLoop(true);
+        musica.setRepeating(true);
         musica.play();
     }
 
     sf::SoundBuffer bufferBurbuja;
-    bufferBurbuja.loadFromFile("recursos/burbuja.wav");
+    bufferBurbuja.openFromFile("recursos/burbuja.wav");
     sf::Sound sonidoBurbuja(bufferBurbuja);
 
     bool enIntro = true;
 
     while (ventana.isOpen()) {
-        sf::Event evento;
-        while (ventana.pollEvent(evento)) {
-            if (evento.type == sf::Event::Closed)
+        while (auto evento = ventana.pollEvent()) {
+            if (evento->is<sf::Event::Closed>())
                 ventana.close();
 
-            if (enIntro && evento.type == sf::Event::KeyPressed && evento.key.code == sf::Keyboard::Enter) {
-                sonidoBurbuja.play();
-                enIntro = false; 
+            if (enIntro && evento->is<sf::Event::KeyPressed>()) {
+                auto keyEvent = evento->getIf<sf::Event::KeyPressed>();
+                if (keyEvent && keyEvent->code == sf::Keyboard::Key::Enter) {
+                    sonidoBurbuja.play();
+                    enIntro = false;
+                }
             }
         }
 
