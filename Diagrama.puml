@@ -1,0 +1,29 @@
+@startuml
+Class Juego
+Juego *-- Bienvenida
+class Bienvenida
+class ImagenFondoBienvenida
+Bienvenida *-- ImagenFondoBienvenida
+class MusicaBienvenida
+Bienvenida *-- MusicaBienvenida
+class BotonPlay
+Bienvenida *-- BotonPlay
+Class SonidoBurbuja
+BotonPlay *-- SonidoBurbuja
+Class Usuario
+Usuario o-- Juego
+Class AutoMenu
+Juego *-- AutoMenu
+Class Auto
+AutoMenu *-- "5"Auto
+Class NissanSkyline
+Class ToyotaSupraMk4
+Class MazdaRX-7FD3S
+NissanSkyline --|> Auto
+ToyotaSupraMk4 --|> Auto
+MazdaRX-7FD3S --|> Auto
+Class MitsubishiEclipse
+MitsubishiEclipse --|> Auto
+Class DodgeChargerR/T1970
+DodgeChargerR/T1970 --|> Auto
+@enduml
