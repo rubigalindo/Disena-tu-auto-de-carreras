@@ -6,12 +6,16 @@ int main() {
 
     // Fondo
     sf::Texture fondoTex;
-    fondoTex.openFromFile("recursos/intro.png");
+    if (!fondoTex.loadFromFile("recursos/intro.png")) {
+        return -1;
+    }
     sf::Sprite fondo(fondoTex);
 
     // Fuente y textos
     sf::Font fuente;
-    fuente.openFromFile("recursos/arial.ttf");
+    if (!fuente.openFromFile("recursos/arial.ttf")) {
+        return -1;
+    }
 
     sf::Text titulo(fuente, "Diseña tu auto de carreras", 50);
     titulo.setFillColor(sf::Color::White);
@@ -25,13 +29,14 @@ int main() {
     // Música de fondo
     sf::Music musica;
     if (musica.openFromFile("recursos/musica_intro.ogg")) {
-        musica.setRepeating(true);
         musica.play();
     }
 
     // Sonido burbuja
     sf::SoundBuffer bufferBurbuja;
-    bufferBurbuja.openFromFile("recursos/burbuja.wav");
+    if (!bufferBurbuja.loadFromFile("recursos/burbuja.wav")) {
+        return -1;
+    }
     sf::Sound sonidoBurbuja(bufferBurbuja);
 
     bool enIntro = true;
