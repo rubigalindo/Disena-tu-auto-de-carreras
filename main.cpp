@@ -99,8 +99,9 @@ int main() {
             if (enIntro && evento->is<sf::Event::MouseButtonPressed>()) {
                 auto mouseEvent = evento->getIf<sf::Event::MouseButtonPressed>();
                 if (mouseEvent && mouseEvent->button == sf::Mouse::Button::Left) {
+                    sf::Vector2f mousePos = ventana.mapPixelToCoords(mouseEvent->position);
                     sf::FloatRect areaPlay = botonPlay.getGlobalBounds();
-                    if (areaPlay.contains(sf::Vector2f(mouseEvent->position))) {
+                    if (areaPlay.contains(mousePos)) {
                         musica.stop();
                         sonidoBurbuja.play();
                         enIntro = false;
@@ -127,10 +128,7 @@ int main() {
             if (enAutoMenu && evento->is<sf::Event::MouseButtonPressed>()) {
                 auto mouseEvent = evento->getIf<sf::Event::MouseButtonPressed>();
                 if (mouseEvent && mouseEvent->button == sf::Mouse::Button::Left) {
-                    sf::Vector2f mousePos(
-                        static_cast<float>(mouseEvent->position.x),
-                        static_cast<float>(mouseEvent->position.y)
-                    );
+                    sf::Vector2f mousePos = ventana.mapPixelToCoords(mouseEvent->position);
                     for (int i = 0; i < 5; i++) {
                         if (autos[i].getGlobalBounds().contains(mousePos)) {
                             seleccionado = i;
