@@ -6,7 +6,7 @@
 bool enAutoMenu = false;
 int seleccionado = 0; // índice del auto seleccionado
 sf::Texture autosTex[5];
-std::vector<sf::Sprite> autos;   // ahora usamos vector dinámico
+std::vector<sf::Sprite> autos;
 sf::RectangleShape marcos[5];
 sf::Clock relojLED;
 bool colorRojo = true;
@@ -40,12 +40,24 @@ int main() {
         400.f
     ));
 
-    // Música
-    sf::Music musica;
-    if (musica.openFromFile("recursos/musica_intro.ogg")) {
-        musica.setLooping(true);
-        musica.play();
+    // Texto AutoMenu
+    sf::Text textoAutoMenu(fuente, sf::String(L"Selecciona tu auto de carreras"), 40);
+    textoAutoMenu.setFillColor(sf::Color::Blue);
+    textoAutoMenu.setStyle(sf::Text::Bold);
+    textoAutoMenu.setPosition(sf::Vector2f(
+        ventana.getSize().x / 2.f - textoAutoMenu.getLocalBounds().size.x / 2.f,
+        50.f
+    ));
+
+    // Música Intro
+    sf::Music musicaIntro;
+    if (musicaIntro.openFromFile("recursos/musica_intro.ogg")) {
+        musicaIntro.setLooping(true);
+        musicaIntro.play();
     }
+
+    // Música AutoMenu
+    sf::Music musicaAutoMenu;
 
     // Sonido burbuja
     sf::SoundBuffer bufferBurbuja;
@@ -59,8 +71,8 @@ int main() {
         std::string nombre = "recursos/auto" + std::to_string(i+1) + ".jpg";
         if (!autosTex[i].loadFromFile(nombre)) return -1;
 
-        sf::Sprite sprite(autosTex[i]); 
-        sprite.setScale(sf::Vector2f(0.5f, 0.5f));
+        sf::Sprite sprite(autosTex[i]);
+        sprite.setScale(sf::Vector2f(0.2f, 0.2f));
 
         if (i < 3)
             sprite.setPosition(sf::Vector2f(150.f + i*250.f, 150.f));
@@ -89,7 +101,11 @@ int main() {
             if (enIntro && evento->is<sf::Event::KeyPressed>()) {
                 auto keyEvent = evento->getIf<sf::Event::KeyPressed>();
                 if (keyEvent && keyEvent->code == sf::Keyboard::Key::Enter) {
-                    musica.stop();
+                    musicaIntro.stop();
+                    if (musicaAutoMenu.openFromFile("recursos/musica_automenu.ogg")) {
+                        musicaAutoMenu.setLooping(true);
+                        musicaAutoMenu.play();
+                    }
                     sonidoBurbuja.play();
                     enIntro = false;
                     enAutoMenu = true;
@@ -102,7 +118,11 @@ int main() {
                     sf::Vector2f mousePos = ventana.mapPixelToCoords(mouseEvent->position);
                     sf::FloatRect areaPlay = botonPlay.getGlobalBounds();
                     if (areaPlay.contains(mousePos)) {
-                        musica.stop();
+                        musicaIntro.stop();
+                        if (musicaAutoMenu.openFromFile("recursos/musica_automenu.ogg")) {
+                            musicaAutoMenu.setLooping(true);
+                            musicaAutoMenu.play();
+                        }
                         sonidoBurbuja.play();
                         enIntro = false;
                         enAutoMenu = true;
@@ -120,6 +140,7 @@ int main() {
                         seleccionado = (seleccionado + 1) % 5;
                     if (keyEvent->code == sf::Keyboard::Key::Enter) {
                         sonidoBurbuja.play();
+                        musicaAutoMenu.stop(); // apagar música al pasar a actividad1
                         // Aquí pasas a actividad1
                     }
                 }
@@ -133,6 +154,7 @@ int main() {
                         if (autos[i].getGlobalBounds().contains(mousePos)) {
                             seleccionado = i;
                             sonidoBurbuja.play();
+                            musicaAutoMenu.stop(); // apagar música al pasar a actividad1
                             // Aquí pasas a actividad1
                         }
                     }
@@ -147,10 +169,14 @@ int main() {
             ventana.draw(titulo);
             ventana.draw(botonPlay);
         } else if (enAutoMenu) {
+            // LED efecto para texto y marcos
             if (relojLED.getElapsedTime().asSeconds() > 0.5f) {
                 colorRojo = !colorRojo;
                 relojLED.restart();
             }
+
+            textoAutoMenu.setFillColor(colorRojo ? sf::Color::Red : sf::Color::Blue);
+            ventana.draw(textoAutoMenu);
 
             for (int i = 0; i < 5; i++) {
                 if (i == seleccionado) {
