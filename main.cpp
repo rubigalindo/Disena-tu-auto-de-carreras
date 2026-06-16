@@ -5,6 +5,7 @@
 #include <vector>
 #include <optional>
 #include <iostream>
+#include <cmath>
 
 // Estados del juego
 int actividad = 0; // 0=Intro, 1=AutoMenu, 2=Reglas, 3=Actividad1, 4=Actividad2
@@ -23,6 +24,12 @@ sf::Texture reglasTex[4];
 std::optional<sf::Sprite> reglasSprite;
 int reglaActual = 0;
 sf::Clock relojReglas;
+
+// --- Reglas Rosas (antes de Actividad 5) ---
+sf::Texture rosasTex[3];
+std::optional<sf::Sprite> rosasSprite;
+int rosaActual = 0;
+sf::Clock relojRosas;
 
 // Música y sonidos
 sf::Music musicaIntro;
@@ -60,10 +67,24 @@ std::optional<sf::Text> textoFin, opcionRepetir, opcionCerrar;
 bool finJuego = false;
 int errores = 0;
 int objetosProcesados = 0;
-const int META_OBJETOS = 20; // cantidad necesaria para pasar
+const int META_OBJETOS = 2; // cantidad necesaria para pasar
 int opcionSeleccionada = 0; // 0=Repetir, 1=Cerrar
 
 std::optional<sf::Sound> sonidoFin;
+
+// --- Actividad 5 (tuercas) ---
+sf::Texture fondoLlantaTex, tuercaTex;
+std::optional<sf::Sprite> fondoLlanta;
+std::vector<sf::Sprite> tuercas;
+std::vector<int> clicsTuerca;
+sf::Music musicaActividad2;
+sf::SoundBuffer bufferDrill;
+std::optional<sf::Sound> sonidoDrill;
+sf::Font fuenteReloj;
+std::optional<sf::Text> textoTiempo;
+sf::Clock relojTiempo;
+int tiempoLimite = 20;
+bool finJuego5 = false;
 
 // --- Inicializar Actividad 1 ---
 void cargarActividad1(sf::Font &fuente) {
@@ -173,6 +194,21 @@ void cargarActividad1(sf::Font &fuente) {
     opcionSeleccionada = 0;
 }
 
+void cargarRosasActividad() {
+    std::string nombres[] = {"rosas1.png","rosas2.png","rosas3.png"};
+    for (int i=0;i<3;i++) {
+        if (!rosasTex[i].loadFromFile("recursos/"+nombres[i])) {
+            std::cerr << "Error cargando " << nombres[i] << "\n";
+        }
+    }
+    rosasSprite.emplace(rosasTex[0]);
+    rosasSprite->setScale(sf::Vector2f(0.6f, 0.6f));
+    rosasSprite->setPosition(sf::Vector2f(0.f, 40.f));
+    rosaActual = 0;
+    relojRosas.restart();
+}
+
+
 // --- Generar objeto aleatorio ---
 void generarObjeto() {
     objetoActual.reset();
@@ -227,7 +263,8 @@ void actualizarObjetos() {
                 objetosProcesados++;
                 if (objetosProcesados >= META_OBJETOS) {
                     musicaActividad1.stop();
-                    actividad = 4;
+                    cargarRosasActividad(); 
+                    actividad = 6;
                 }
             }
             objetoActual.reset();
@@ -260,6 +297,7 @@ void manejarFin(const sf::Event &evento, sf::RenderWindow &ventana, sf::Font &fu
             if (opcionSeleccionada == 0) {
                 // Repetir → volver al inicio
                 musicaActividad1.stop();
+                musicaActividad2.stop();
                 actividad = 0;
                 cargarActividad1(fuente); // reset
             } else {
@@ -280,6 +318,7 @@ void manejarFin(const sf::Event &evento, sf::RenderWindow &ventana, sf::Font &fu
             sf::Vector2f mousePos = ventana.mapPixelToCoords(mouse->position);
             if (opcionRepetir->getGlobalBounds().contains(mousePos)) {
                 musicaActividad1.stop();
+                musicaActividad2.stop();
                 actividad = 0;
                 cargarActividad1(fuente);
                 if (musicaIntro.getStatus() != sf::SoundSource::Status::Playing) {
@@ -292,6 +331,64 @@ void manejarFin(const sf::Event &evento, sf::RenderWindow &ventana, sf::Font &fu
             }
         }
     }
+}
+
+void cargarActividad5() {
+    if (!fondoLlantaTex.loadFromFile("recursos/fondo_llanta.png"))
+        std::cerr << "Error cargando fondo_llanta.png\n";
+    fondoLlanta.emplace(fondoLlantaTex);
+
+    // Escalar la llanta para cubrir la pantalla (ajusta si tu ventana cambia)
+    auto texSize = fondoLlantaTex.getSize();
+    float scaleX = 4000.f / static_cast<float>(texSize.x);
+    float scaleY = 4000.f / static_cast<float>(texSize.y);
+    float scaleMax = std::max(scaleX, scaleY) * 1.05f; // un poco sobredimensionada
+    fondoLlanta->setScale(sf::Vector2f(scaleMax, scaleMax));
+    // Centrar la llanta en la ventana
+    fondoLlanta->setPosition(sf::Vector2f(1000.f/2.f - (texSize.x*scaleMax)/2.f,
+                                          1000.f/2.f - (texSize.y*scaleMax)/2.f));
+
+    if (!tuercaTex.loadFromFile("recursos/tuerca.png"))
+        std::cerr << "Error cargando tuerca.png\n";
+    tuercas.clear();
+    clicsTuerca.assign(9, 0);
+
+    // Colocar 9 tuercas alrededor del centro, con radio mayor para evitar solapamientos
+    float cx = 1000.f / 2.f;
+    float cy = 800.f / 2.f;
+    float radio = 250.f; // mayor radio para que no se toquen
+    float initialScale = 0.20f; // tuercas pequeñas inicialmente
+
+    for (int i = 0; i < 9; ++i) {
+        sf::Sprite t(tuercaTex);
+        // origen al centro para que el escalado sea centrado
+       auto b = t.getLocalBounds();
+t.setOrigin(sf::Vector2f(b.size.x / 2.f, b.size.y / 2.f));
+
+        float ang = i * (2.f * M_PI / 9.f);
+        t.setPosition(sf::Vector2f(cx + radio * std::cos(ang), cy + radio * std::sin(ang)));
+        t.setScale(sf::Vector2f(initialScale, initialScale));
+        tuercas.push_back(t);
+    }
+
+    if (!musicaActividad2.openFromFile("recursos/musica_actividad2.ogg"))
+        std::cerr << "Error cargando musica_actividad2.ogg\n";
+    musicaActividad2.setLooping(true);
+    musicaActividad2.play();
+
+    if (!bufferDrill.loadFromFile("recursos/drill.wav"))
+        std::cerr << "Error cargando drill.wav\n";
+    sonidoDrill.emplace(bufferDrill);
+
+    if (!fuenteReloj.openFromFile("recursos/reloj.ttf"))
+        std::cerr << "Error cargando reloj.ttf\n";
+    textoTiempo.emplace(fuenteReloj, "", 40);
+    textoTiempo->setFillColor(sf::Color::White);
+    // mover el texto del tiempo un poco a la izquierda (ajusta x a tu gusto)
+    textoTiempo->setPosition(sf::Vector2f(600.f, 60.f));
+
+    relojTiempo.restart();
+    finJuego5 = false;
 }
 
 
@@ -420,7 +517,7 @@ int main() {
                         if (sonidoBurbuja) sonidoBurbuja->play();
                         musicaAutoMenu.stop();
                         // Pasar a Reglas
-                        for (int i = 0; i < 7; i++) {
+                        for (int i = 0; i < 4; i++) {
                             std::string nombre = "recursos/imagen_reglas" + std::to_string(i+1) + ".png";
                             if (!reglasTex[i].loadFromFile(nombre)) {
                                 std::cerr << "Error: no se pudo cargar " << nombre << "\n";
@@ -443,7 +540,7 @@ int main() {
                                 if (sonidoBurbuja) sonidoBurbuja->play();
                                 musicaAutoMenu.stop();
                                 // Pasar a Reglas
-                                for (int j = 0; j < 7; j++) {
+                                for (int j = 0; j < 4; j++) {
                                     std::string nombre = "recursos/imagen_reglas" + std::to_string(j+1) + ".png";
                                     if (!reglasTex[j].loadFromFile(nombre)) {
                                         std::cerr << "Error: no se pudo cargar " << nombre << "\n";
@@ -460,6 +557,64 @@ int main() {
             } else if (actividad == 3 && finJuego) {
                 manejarFin(*evento, ventana, fuente);
             }
+            else if (actividad == 5 && finJuego5) {
+    manejarFin(*evento, ventana, fuente);
+}
+
+
+            else if (actividad == 6) {
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Enter)) {
+        actividad = 5; // ahora sí pasa a la Actividad 5 (tuercas)
+        cargarActividad5();
+    }
+}
+// Manejo de clics en Actividad 5 (tuercas) — dentro del while(evento)
+if (actividad == 5) {
+    if (auto mouse = evento->getIf<sf::Event::MouseButtonPressed>()) {
+        if (mouse->button == sf::Mouse::Button::Left) {
+            sf::Vector2f mousePos = ventana.mapPixelToCoords(mouse->position);
+            for (size_t i = 0; i < tuercas.size(); ++i) {
+                if (tuercas[i].getGlobalBounds().contains(mousePos)) {
+                    // si ya completó 5 clics, ignorar
+                    if (clicsTuerca[i] >= 5) break;
+
+                    // incrementar contador
+                    ++clicsTuerca[i];
+
+                    // reproducir sonido solo si no está ya en reproducción
+                    if (sonidoDrill) {
+                        if (sonidoDrill->getStatus() != sf::SoundSource::Status::Playing)
+                            sonidoDrill->play();
+                        else {
+                            // reiniciar para efecto inmediato (opcional)
+                            sonidoDrill->stop();
+                            sonidoDrill->play();
+                        }
+                    }
+
+                    // aumentar tamaño de forma controlada hasta un máximo
+                    float maxScale = 0.45f; // escala máxima permitida
+                    float growPerClick = 0.06f; // cuánto crecer por clic
+                    sf::Vector2f cur = tuercas[i].getScale();
+                    float newScaleX = std::min(cur.x + growPerClick, maxScale);
+                    float newScaleY = std::min(cur.y + growPerClick, maxScale);
+                    tuercas[i].setScale(sf::Vector2f(newScaleX, newScaleY));
+
+                    // si llegó a 5 clics, detener sonido (si quieres un "clic final")
+                    if (clicsTuerca[i] >= 5) {
+                        if (sonidoDrill) sonidoDrill->stop();
+                    }
+
+                    // evitar que un mismo clic afecte varias tuercas
+                    break;
+                }
+            }
+        }
+    }
+}
+
+
+
         }
 
         // Lógica de juego por pantalla
@@ -481,7 +636,14 @@ int main() {
                 if (musicaActividad1.getStatus() != sf::SoundSource::Status::Playing) {
                     musicaActividad1.play();
                 }
+                if (objetosProcesados >= META_OBJETOS) {
+    musicaActividad1.stop();
+    cargarRosasActividad();
+    actividad = 6; // nueva pantalla de rosas
+
+}
                 actualizarObjetos();
+
             }
         }
 
@@ -529,12 +691,53 @@ int main() {
                 ventana.draw(*barra);
                 if (objetoActual.has_value()) ventana.draw(objetoActual->sprite);
                 for (int i = 0; i < 3; i++) ventana.draw(textoErrores[i]);
-            } else {
-                dibujarFin(ventana);
-            }
-        }
+            } 
+        }else if (actividad == 6) {
+    if (relojRosas.getElapsedTime().asSeconds() > 2.0f) {
+        rosaActual = (rosaActual+1)%3;
+        rosasSprite->setTexture(rosasTex[rosaActual]);
+        relojRosas.restart();
+    }
+    ventana.draw(*rosasSprite);
+}
+else if (actividad == 5) {
+int tiempoRestante = tiempoLimite - relojTiempo.getElapsedTime().asSeconds();
+textoTiempo->setString(std::string("Tiempo: ") + std::to_string(std::max(0, tiempoRestante)));
+
+// Verificar si todas las tuercas ya fueron clicadas 5 veces
+bool todasCompletadas = true;
+for (size_t i = 0; i < clicsTuerca.size(); ++i) {
+    if (clicsTuerca[i] < 5) {
+        todasCompletadas = false;
+        break;
+    }
+}
+
+if (todasCompletadas && !finJuego5) {
+    // Pausar tiempo y pasar a la siguiente actividad
+    musicaActividad2.stop();
+    actividad = 7; // penúltima actividad
+    // aquí puedes cargarActividad7() si ya la tienes
+}
+
+    if (tiempoRestante <= 0 && !finJuego5) {
+        finJuego5 = true;
+        musicaActividad2.stop();
+        if (sonidoFin) sonidoFin->play();
+    }
+
+    ventana.draw(*fondoLlanta);
+    for(auto &t:tuercas) ventana.draw(t);
+    ventana.draw(*textoTiempo);
+
+    if (finJuego5) {
+        dibujarFin(ventana);
+    }
+}
+
+
 
         ventana.display();
     }
-    return 0;
+  return 0;
 }
