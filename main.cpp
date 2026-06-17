@@ -10,6 +10,9 @@
 // Estados del juego
 int actividad = 0; // 0=Intro, 1=AutoMenu, 2=Reglas, 3=Actividad1, 4=Actividad2
 
+sf::Music musicaBanderas;
+
+
 // AutoMenu
 bool enAutoMenu = false;
 int seleccionado = 0; // índice del auto seleccionado
@@ -18,6 +21,8 @@ std::vector<sf::Sprite> autos;
 sf::RectangleShape marcos[5];
 sf::Clock relojLED;
 bool colorRojo = true;
+
+
 
 // Reglas
 sf::Texture reglasTex[4];
@@ -30,6 +35,11 @@ sf::Texture rosasTex[3];
 std::optional<sf::Sprite> rosasSprite;
 int rosaActual = 0;
 sf::Clock relojRosas;
+
+sf::Texture banderasTex[7];
+std::optional<sf::Sprite> banderasSprite;
+int banderaActual = 0;
+sf::Clock relojBanderas;
 
 // Música y sonidos
 sf::Music musicaIntro;
@@ -67,7 +77,7 @@ std::optional<sf::Text> textoFin, opcionRepetir, opcionCerrar;
 bool finJuego = false;
 int errores = 0;
 int objetosProcesados = 0;
-const int META_OBJETOS = 2; // cantidad necesaria para pasar
+const int META_OBJETOS = 40; // cantidad necesaria para pasar
 int opcionSeleccionada = 0; // 0=Repetir, 1=Cerrar
 
 std::optional<sf::Sound> sonidoFin;
@@ -194,6 +204,8 @@ void cargarActividad1(sf::Font &fuente) {
     opcionSeleccionada = 0;
 }
 
+
+
 void cargarRosasActividad() {
     std::string nombres[] = {"rosas1.png","rosas2.png","rosas3.png"};
     for (int i=0;i<3;i++) {
@@ -207,6 +219,27 @@ void cargarRosasActividad() {
     rosaActual = 0;
     relojRosas.restart();
 }
+
+void cargarBanderasActividad() {
+    std::string nombres[] = {"banderas1.png","banderas2.png","banderas3.png","banderas4.png","banderas5.png","banderas6.png"};
+    for (int i=0;i<6;i++) {
+        if (!banderasTex[i].loadFromFile("recursos/"+nombres[i])) {
+            std::cerr << "Error cargando " << nombres[i] << "\n";
+        }
+    }
+    banderasSprite.emplace(banderasTex[0]);
+    banderasSprite->setScale(sf::Vector2f(0.6f, 0.6f));
+    banderasSprite->setPosition(sf::Vector2f(0.f, 40.f));
+    banderaActual = 0;
+    relojBanderas.restart();
+    if (!musicaBanderas.openFromFile("recursos/musica_banderas.ogg")) {
+    std::cerr << "Error cargando musica_banderas.ogg\n";
+}
+musicaBanderas.setLooping(true);
+musicaBanderas.play();
+
+}
+
 
 
 // --- Generar objeto aleatorio ---
@@ -641,6 +674,22 @@ if (actividad == 5) {
     cargarRosasActividad();
     actividad = 6; // nueva pantalla de rosas
 
+}else if (actividad == 7) {
+    if (relojBanderas.getElapsedTime().asSeconds() > 2.0f) {
+        banderaActual = (banderaActual+1)%6;
+        banderasSprite->setTexture(banderasTex[banderaActual]);
+        relojBanderas.restart();
+    }
+    ventana.draw(*banderasSprite);
+
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Enter)) {
+    musicaBanderas.stop();   // detener música de banderas
+    actividad = 8;           // pasar a la siguiente actividad
+    // cargarActividad8();    // si ya tienes definida la carrera
+}
+
+    // Avanzar a la carrera con Enter
+
 }
                 actualizarObjetos();
 
@@ -709,6 +758,7 @@ bool todasCompletadas = true;
 for (size_t i = 0; i < clicsTuerca.size(); ++i) {
     if (clicsTuerca[i] < 5) {
         todasCompletadas = false;
+
         break;
     }
 }
@@ -717,7 +767,7 @@ if (todasCompletadas && !finJuego5) {
     // Pausar tiempo y pasar a la siguiente actividad
     musicaActividad2.stop();
     actividad = 7; // penúltima actividad
-    // aquí puedes cargarActividad7() si ya la tienes
+    cargarBanderasActividad();
 }
 
     if (tiempoRestante <= 0 && !finJuego5) {
@@ -732,6 +782,24 @@ if (todasCompletadas && !finJuego5) {
 
     if (finJuego5) {
         dibujarFin(ventana);
+    }
+}else if (actividad == 7) {
+    if (relojBanderas.getElapsedTime().asSeconds() > 2.0f) {
+        banderaActual = (banderaActual+1)%6;
+        banderasSprite->setTexture(banderasTex[banderaActual]);
+        relojBanderas.restart();
+    }
+    ventana.draw(*banderasSprite);
+
+    // Aquí puedes decidir cómo avanzar: por ejemplo, con Enter pasar a otra actividad
+   if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Enter)) {
+        musicaBanderas.stop();
+        ventana.close(); // o actividad = 8 si quieres continuar
+    }
+
+    // Caso 2: la canción termina sola
+    if (musicaBanderas.getStatus() == sf::SoundSource::Status::Stopped) {
+        ventana.close(); // o actividad = 8
     }
 }
 
