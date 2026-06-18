@@ -64,21 +64,21 @@ private:
 public:
     void inicializar(const sf::Font& fuente, const sf::Font& fuenteError) {
 
-        (void)fondoCiudadTex.loadFromFile("recursos/ciudadfondo.png");
+        (void)fondoCiudadTex.loadFromFile("assets/ciudadfondo.png");
         fondoCiudad.setTexture(fondoCiudadTex, true);
         fondoCiudad.setScale(sf::Vector2f(0.8f, 0.8f));
 
-        (void)tallerTex.loadFromFile("recursos/taller.png");
+        (void)tallerTex.loadFromFile("assets/taller.png");
         taller.setTexture(tallerTex, true);
         taller.setScale(sf::Vector2f(0.24f, 0.24f));
         taller.setPosition(sf::Vector2f(690.f, 450.f));
 
-        (void)basuraTex.loadFromFile("recursos/basura.png");
+        (void)basuraTex.loadFromFile("assets/basura.png");
         basura.setTexture(basuraTex, true);
         basura.setScale(sf::Vector2f(0.24f, 0.24f));
         basura.setPosition(sf::Vector2f(10.f, 500.f));
 
-        (void)barraTex.loadFromFile("recursos/barra_equilibrio.png");
+        (void)barraTex.loadFromFile("assets/barra_equilibrio.png");
         barra.setTexture(barraTex, true);
         barra.setScale(sf::Vector2f(0.35f, 0.35f));
         auto bounds = barra.getLocalBounds();
@@ -101,16 +101,16 @@ public:
 
         std::string buenos[] = {"motor.png","bateria.png","transmision.png","radiador.png",
                                 "alternador.png","suspension.png","escape.png","volante.png","llanta.png"};
-        for (int i=0; i<9; i++) (void)objetosBuenosTex[i].loadFromFile("recursos/" + buenos[i]);
+        for (int i=0; i<9; i++) (void)objetosBuenosTex[i].loadFromFile("assets/" + buenos[i]);
 
         std::string malos[] = {"periodico.png","trapo.png","esponja.png","cepillo.png",
                                "aceite.png","clavo.png","pintura.png","aerosol.png"};
-        for (int i=0; i<8; i++) (void)objetosMalosTex[i].loadFromFile("recursos/" + malos[i]);
+        for (int i=0; i<8; i++) (void)objetosMalosTex[i].loadFromFile("assets/" + malos[i]);
 
-        (void)musica.openFromFile("recursos/musica_actividad1.ogg");
+        (void)musica.openFromFile("assets/musica_actividad1.ogg");
         musica.setLooping(true);
 
-        (void)bufferFin.loadFromFile("recursos/sonido_fin.wav");
+        (void)bufferFin.loadFromFile("assets/sonido_fin.wav");
 
         textoFin.emplace(fuente, "Fin Del Juego", 60);
         textoFin->setFillColor(sf::Color::Red);
@@ -283,7 +283,7 @@ private:
 
 public:
     void inicializar(const sf::Font& fuente) {
-        (void)fondoLlantaTex.loadFromFile("recursos/fondo_llanta.png");
+        (void)fondoLlantaTex.loadFromFile("assets/fondo_llanta.png");
         fondoLlanta.setTexture(fondoLlantaTex, true);
 
         auto texSize = fondoLlantaTex.getSize();
@@ -292,7 +292,7 @@ public:
         fondoLlanta.setPosition(sf::Vector2f(500.f - (texSize.x * scaleMax)/2.f, 
                                              400.f - (texSize.y * scaleMax)/2.f));
 
-        (void)tuercaTex.loadFromFile("recursos/tuerca.png");
+        (void)tuercaTex.loadFromFile("assets/tuerca.png");
         tuercas.clear();
         clicsTuerca.assign(9, 0);
 
@@ -307,8 +307,8 @@ public:
             tuercas.push_back(t);
         }
 
-        (void)musica.openFromFile("recursos/musica_actividad2.ogg");
-        (void)bufferDrill.loadFromFile("recursos/drill.wav");
+        (void)musica.openFromFile("assets/musica_actividad2.ogg");
+        (void)bufferDrill.loadFromFile("assets/drill.wav");
 
         textoTiempo.emplace(fuente, "", 40);
         textoTiempo->setFillColor(sf::Color::White);
@@ -477,16 +477,16 @@ public:
 
 private:
     void cargarRecursosGlobales() {
-        (void)fuentePrincipal.openFromFile("recursos/arial.ttf");
+        (void)fuentePrincipal.openFromFile("assets/arial.ttf");
 
-        if (!fuenteErrores.openFromFile("recursos/x.ttf")) {
-            (void)fuenteErrores.openFromFile("recursos/arial.ttf");
+        if (!fuenteErrores.openFromFile("assets/x.ttf")) {
+            (void)fuenteErrores.openFromFile("assets/arial.ttf");
         }
-        (void)bufferBurbuja.loadFromFile("recursos/burbuja.wav");
+        (void)bufferBurbuja.loadFromFile("assets/burbuja.wav");
     }
 
     void inicializarMenu() {
-        (void)fondoIntroTex.loadFromFile("recursos/intro.png");
+        (void)fondoIntroTex.loadFromFile("assets/intro.png");
         fondoIntro.setTexture(fondoIntroTex, true);
         fondoIntro.setScale(sf::Vector2f(0.7f, 0.7f));
         fondoIntro.setPosition(sf::Vector2f(0.f, 60.f));
@@ -506,7 +506,7 @@ private:
 
         marcos.clear();
         for (int i = 0; i < 5; i++) {
-            (void)autosTex[i].loadFromFile("recursos/auto" + std::to_string(i+1) + ".jpg");
+            (void)autosTex[i].loadFromFile("assets/auto" + std::to_string(i+1) + ".jpg");
             sf::Sprite sprite(autosTex[i]);
             sprite.setScale(sf::Vector2f(0.2f, 0.2f));
             sprite.setPosition(sf::Vector2f(i < 3 ? 150.f + i*250.f : 250.f + (i-3)*250.f, i < 3 ? 150.f : 450.f));
@@ -519,7 +519,7 @@ private:
             marcos.push_back(marco);
         }
 
-        (void)musicaIntro.openFromFile("recursos/musica_intro.ogg");
+        (void)musicaIntro.openFromFile("assets/musica_intro.ogg");
         musicaIntro.setLooping(true);
         musicaIntro.play();
     }
@@ -528,7 +528,7 @@ private:
         cutsceneTex.clear();
         cutsceneTex.resize(cantidad);
         for (int i = 0; i < cantidad; i++) {
-            (void)cutsceneTex[i].loadFromFile("recursos/" + prefijo + std::to_string(i+1) + ".png");
+            (void)cutsceneTex[i].loadFromFile("assets/" + prefijo + std::to_string(i+1) + ".png");
         }
         
         if (!cutsceneSprite.has_value()) {
@@ -645,7 +645,7 @@ private:
                 if (minijuegoTuercas.haCompletado()) {
                     estadoActual = GameState::Banderas;
                     cargarCutscene("banderas", 6);
-                    (void)musicaBanderas.openFromFile("recursos/musica_banderas.ogg");
+                    (void)musicaBanderas.openFromFile("assets/musica_banderas.ogg");
                     musicaBanderas.play();
                 }
                 break;
@@ -696,7 +696,7 @@ private:
     void iniciarAutoMenu() {
         sonidoBurbuja.play();
         musicaIntro.stop();
-        (void)musicaAutoMenu.openFromFile("recursos/musica_automenu.ogg");
+        (void)musicaAutoMenu.openFromFile("assets/musica_automenu.ogg");
         musicaAutoMenu.setLooping(true);
         musicaAutoMenu.play();
         estadoActual = GameState::AutoMenu;
