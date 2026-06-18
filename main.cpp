@@ -1,812 +1,718 @@
-﻿#include <SFML/Graphics.hpp>
+﻿#define _USE_MATH_DEFINES 
+#include <cmath>
+#include <ctime>
+#include <SFML/Graphics.hpp>
 #include <SFML/Audio.hpp>
 #include <algorithm>
 #include <string>
 #include <vector>
 #include <optional>
 #include <iostream>
-#include <cmath>
 
-// Estados del juego
-int actividad = 0; // 0=Intro, 1=AutoMenu, 2=Reglas, 3=Actividad1, 4=Actividad2
+enum class GameState {
+    Intro,
+    AutoMenu,
+    Reglas,
+    Actividad1,
+    Actividad5,
+    Rosas,
+    Banderas
+};
 
-sf::Music musicaBanderas;
-
-
-// AutoMenu
-bool enAutoMenu = false;
-int seleccionado = 0; // índice del auto seleccionado
-sf::Texture autosTex[5];
-std::vector<sf::Sprite> autos;
-sf::RectangleShape marcos[5];
-sf::Clock relojLED;
-bool colorRojo = true;
-
-
-
-// Reglas
-sf::Texture reglasTex[4];
-std::optional<sf::Sprite> reglasSprite;
-int reglaActual = 0;
-sf::Clock relojReglas;
-
-// --- Reglas Rosas (antes de Actividad 5) ---
-sf::Texture rosasTex[3];
-std::optional<sf::Sprite> rosasSprite;
-int rosaActual = 0;
-sf::Clock relojRosas;
-
-sf::Texture banderasTex[7];
-std::optional<sf::Sprite> banderasSprite;
-int banderaActual = 0;
-sf::Clock relojBanderas;
-
-// Música y sonidos
-sf::Music musicaIntro;
-sf::Music musicaAutoMenu;
-sf::SoundBuffer bufferBurbuja;
-std::optional<sf::Sound> sonidoBurbuja;
-
-// --- Variables globales para Actividad 1 ---
-struct Objeto {
+struct ObjetoMecanico {
     sf::Sprite sprite;
     bool esBueno;
     bool enBarra = false;
-    Objeto(const sf::Sprite &s, bool bueno)
-        : sprite(s), esBueno(bueno) {}
+    ObjetoMecanico(const sf::Sprite& s, bool bueno) : sprite(s), esBueno(bueno) {}
 };
 
-sf::Texture fondoCiudadTex, tallerTex, basuraTex, barraTex;
-sf::Font fuenteX;
-sf::Font *fuenteErrorFont = nullptr;
-std::optional<sf::Sprite> fondoCiudad, taller, basura, barra;
-std::vector<sf::Text> textoErrores;
-float barraAngle = 0.f;
+class ActividadEquilibrio {
+private:
+    sf::Texture fondoCiudadTex, tallerTex, basuraTex, barraTex;
+    sf::Sprite fondoCiudad{fondoCiudadTex};
+    sf::Sprite taller{tallerTex};
+    sf::Sprite basura{basuraTex};
+    sf::Sprite barra{barraTex};
+    
+    std::vector<sf::Text> textoErrores;
+    float barraAngle = 0.f;
 
-sf::Texture objetosBuenosTex[9];
-sf::Texture objetosMalosTex[8];
-std::optional<Objeto> objetoActual;
-sf::Clock relojObjeto;
-float velocidadCaidaObjeto = 1.4f;
-float retardoNuevoObjeto = 1.8f;
+    sf::Texture objetosBuenosTex[9];
+    sf::Texture objetosMalosTex[8];
+    std::optional<ObjetoMecanico> objetoActual;
+    sf::Clock relojObjeto;
+    
+    float velocidadCaidaObjeto = 1.4f;
+    float retardoNuevoObjeto = 1.8f;
+    int errores = 0;
+    int objetosProcesados = 0;
+    const int META_OBJETOS = 50;
 
-sf::Music musicaActividad1;
-sf::SoundBuffer bufferFin;
+    sf::Music musica;
+    sf::SoundBuffer bufferFin;
+    sf::Sound sonidoFin{bufferFin};
 
-std::optional<sf::Text> textoFin, opcionRepetir, opcionCerrar;
-bool finJuego = false;
-int errores = 0;
-int objetosProcesados = 0;
-const int META_OBJETOS = 40; // cantidad necesaria para pasar
-int opcionSeleccionada = 0; // 0=Repetir, 1=Cerrar
+    std::optional<sf::Text> textoFin;
+    std::optional<sf::Text> opcionRepetir;
+    std::optional<sf::Text> opcionCerrar;
+    
+    int opcionSeleccionada = 0;
+    bool finJuego = false;
+    bool completado = false;
+    bool cerrarSolicitado = false;
 
-std::optional<sf::Sound> sonidoFin;
+public:
+    void inicializar(const sf::Font& fuente, const sf::Font& fuenteError) {
 
-// --- Actividad 5 (tuercas) ---
-sf::Texture fondoLlantaTex, tuercaTex;
-std::optional<sf::Sprite> fondoLlanta;
-std::vector<sf::Sprite> tuercas;
-std::vector<int> clicsTuerca;
-sf::Music musicaActividad2;
-sf::SoundBuffer bufferDrill;
-std::optional<sf::Sound> sonidoDrill;
-sf::Font fuenteReloj;
-std::optional<sf::Text> textoTiempo;
-sf::Clock relojTiempo;
-int tiempoLimite = 20;
-bool finJuego5 = false;
+        (void)fondoCiudadTex.loadFromFile("recursos/ciudadfondo.png");
+        fondoCiudad.setTexture(fondoCiudadTex, true);
+        fondoCiudad.setScale(sf::Vector2f(0.8f, 0.8f));
 
-// --- Inicializar Actividad 1 ---
-void cargarActividad1(sf::Font &fuente) {
-    if (!fondoCiudadTex.loadFromFile("recursos/ciudadfondo.png")) {
-        std::cerr << "Error: no se pudo cargar recursos/ciudadfondo.png\n";
-    }
-    fondoCiudad.emplace(fondoCiudadTex);
-    fondoCiudad->setScale(sf::Vector2f(0.8f, 0.8f));
+        (void)tallerTex.loadFromFile("recursos/taller.png");
+        taller.setTexture(tallerTex, true);
+        taller.setScale(sf::Vector2f(0.24f, 0.24f));
+        taller.setPosition(sf::Vector2f(690.f, 450.f));
 
-    if (!tallerTex.loadFromFile("recursos/taller.png")) {
-        std::cerr << "Error: no se pudo cargar recursos/taller.png\n";
-    }
-    taller.emplace(tallerTex);
-    taller->setScale(sf::Vector2f(0.24f, 0.24f));
-    taller->setPosition(sf::Vector2f(690.f, 450.f));
+        (void)basuraTex.loadFromFile("recursos/basura.png");
+        basura.setTexture(basuraTex, true);
+        basura.setScale(sf::Vector2f(0.24f, 0.24f));
+        basura.setPosition(sf::Vector2f(10.f, 500.f));
 
-    if (!basuraTex.loadFromFile("recursos/basura.png")) {
-        std::cerr << "Error: no se pudo cargar recursos/basura.png\n";
-    }
-    basura.emplace(basuraTex);
-    basura->setScale(sf::Vector2f(0.24f, 0.24f));
-    basura->setPosition(sf::Vector2f(10.f, 500.f));
+        (void)barraTex.loadFromFile("recursos/barra_equilibrio.png");
+        barra.setTexture(barraTex, true);
+        barra.setScale(sf::Vector2f(0.35f, 0.35f));
+        auto bounds = barra.getLocalBounds();
+        barra.setOrigin(sf::Vector2f(bounds.size.x / 2.f, bounds.size.y / 2.f));
+        barra.setPosition(sf::Vector2f(500.f, 540.f));
+        barraAngle = 0.f;
 
-    if (!barraTex.loadFromFile("recursos/barra_equilibrio.png")) {
-        std::cerr << "Error: no se pudo cargar recursos/barra_equilibrio.png\n";
-    }
-    barra.emplace(barraTex);
-    barra->setScale(sf::Vector2f(0.35f, 0.35f));
-    auto bounds = barra->getLocalBounds();
-    barra->setOrigin(sf::Vector2f(
-        bounds.position.x + bounds.size.x / 2.f,
-        bounds.position.y + bounds.size.y / 2.f));
-    barra->setPosition(sf::Vector2f(500.f, 540.f));
-    barraAngle = 0.f;
-    barra->setRotation(sf::degrees(barraAngle));
-
-    // Texto de errores XXX
-    textoErrores.clear();
-    textoErrores.reserve(3);
-    for (int i = 0; i < 3; i++) {
-        sf::Text texto(*fuenteErrorFont, "X", 100);
-        texto.setFillColor(sf::Color::White);
-        texto.setOutlineThickness(6);
-        texto.setOutlineColor(sf::Color::Black);
-        texto.setStyle(sf::Text::Bold);
-        auto textBounds = texto.getLocalBounds();
-        texto.setOrigin(sf::Vector2f(
-            textBounds.position.x + textBounds.size.x / 2.f,
-            textBounds.position.y + textBounds.size.y / 2.f));
-        texto.setPosition(sf::Vector2f(820.f + i * 60.f, 60.f));
-        textoErrores.push_back(texto);
-    }
-
-    // Cargar objetos buenos
-    std::string buenos[] = {"motor.png","bateria.png","transmision.png","radiador.png",
-                            "alternador.png","suspension.png","escape.png","volante.png","llanta.png"};
-    for (int i=0;i<9;i++) {
-        if (!objetosBuenosTex[i].loadFromFile("recursos/"+buenos[i])) {
-            std::cerr << "Error: no se pudo cargar recursos/" << buenos[i] << "\n";
-        }
-    }
-
-    // Cargar objetos malos
-    std::string malos[] = {"periodico.png","trapo.png","esponja.png","cepillo.png",
-                           "aceite.png","clavo.png","pintura.png","aerosol.png"};
-    for (int i=0;i<8;i++) {
-        if (!objetosMalosTex[i].loadFromFile("recursos/"+malos[i])) {
-            std::cerr << "Error: no se pudo cargar recursos/" << malos[i] << "\n";
-        }
-    }
-
-    // Música
-    if (!musicaActividad1.openFromFile("recursos/musica_actividad1.ogg")) {
-        std::cerr << "Error: no se pudo cargar recursos/musica_actividad1.ogg\n";
-    }
-    musicaActividad1.setLooping(true);
-
-    // Sonido fin
-    if (!bufferFin.loadFromFile("recursos/sonido_fin.wav")) {
-        std::cerr << "Error: no se pudo cargar recursos/sonido_fin.wav\n";
-    }
-    sonidoFin.emplace(bufferFin);
-
-    // Texto fin
-    textoFin.emplace(fuente);
-    textoFin->setString("Fin Del Juego");
-    textoFin->setCharacterSize(60);
-    textoFin->setFillColor(sf::Color::Red);
-    textoFin->setPosition(sf::Vector2f(300.f, 200.f));
-
-    opcionRepetir.emplace(fuente);
-    opcionRepetir->setString("Repetir");
-    opcionRepetir->setCharacterSize(40);
-    opcionRepetir->setPosition(sf::Vector2f(350.f, 400.f));
-
-    opcionCerrar.emplace(fuente);
-    opcionCerrar->setString("Cerrar");
-    opcionCerrar->setCharacterSize(40);
-    opcionCerrar->setPosition(sf::Vector2f(550.f, 400.f));
-
-    // Reset variables
-    errores = 0;
-    objetosProcesados = 0;
-    objetoActual.reset();
-    relojObjeto.restart();
-    finJuego = false;
-    opcionSeleccionada = 0;
-}
-
-
-
-void cargarRosasActividad() {
-    std::string nombres[] = {"rosas1.png","rosas2.png","rosas3.png"};
-    for (int i=0;i<3;i++) {
-        if (!rosasTex[i].loadFromFile("recursos/"+nombres[i])) {
-            std::cerr << "Error cargando " << nombres[i] << "\n";
-        }
-    }
-    rosasSprite.emplace(rosasTex[0]);
-    rosasSprite->setScale(sf::Vector2f(0.6f, 0.6f));
-    rosasSprite->setPosition(sf::Vector2f(0.f, 40.f));
-    rosaActual = 0;
-    relojRosas.restart();
-}
-
-void cargarBanderasActividad() {
-    std::string nombres[] = {"banderas1.png","banderas2.png","banderas3.png","banderas4.png","banderas5.png","banderas6.png"};
-    for (int i=0;i<6;i++) {
-        if (!banderasTex[i].loadFromFile("recursos/"+nombres[i])) {
-            std::cerr << "Error cargando " << nombres[i] << "\n";
-        }
-    }
-    banderasSprite.emplace(banderasTex[0]);
-    banderasSprite->setScale(sf::Vector2f(0.6f, 0.6f));
-    banderasSprite->setPosition(sf::Vector2f(0.f, 40.f));
-    banderaActual = 0;
-    relojBanderas.restart();
-    if (!musicaBanderas.openFromFile("recursos/musica_banderas.ogg")) {
-    std::cerr << "Error cargando musica_banderas.ogg\n";
-}
-musicaBanderas.setLooping(true);
-musicaBanderas.play();
-
-}
-
-
-
-// --- Generar objeto aleatorio ---
-void generarObjeto() {
-    objetoActual.reset();
-    bool bueno = rand() % 2;
-    sf::Sprite sprite(bueno ? objetosBuenosTex[rand() % 9] : objetosMalosTex[rand() % 8]);
-    auto bounds = sprite.getLocalBounds();
-    sprite.setScale(sf::Vector2f(0.30f, 0.30f));
-    sprite.setOrigin(sf::Vector2f(bounds.size.x / 2.f, bounds.size.y / 2.f));
-    sprite.setPosition(sf::Vector2f(500.f, -80.f));
-    objetoActual.emplace(sprite, bueno);
-    relojObjeto.restart();
-}
-
-// --- Actualizar objetos ---
-void actualizarObjetos() {
-    if (!objetoActual.has_value()) return;
-    auto &obj = *objetoActual;
-
-    if (!obj.enBarra) {
-        obj.sprite.move(sf::Vector2f(0.f, velocidadCaidaObjeto)); // velocidad caída
-
-        if (obj.sprite.getPosition().y > 850.f) {
-            objetoActual.reset();
-            return;
+        textoErrores.clear();
+        for (int i = 0; i < 3; i++) {
+            sf::Text texto(fuenteError, "X", 100);
+            texto.setFillColor(sf::Color::White);
+            texto.setOutlineThickness(6);
+            texto.setOutlineColor(sf::Color::Black);
+            texto.setStyle(sf::Text::Bold);
+            auto textBounds = texto.getLocalBounds();
+            texto.setOrigin(sf::Vector2f(textBounds.size.x / 2.f, textBounds.size.y / 2.f));
+            texto.setPosition(sf::Vector2f(820.f + i * 60.f, 60.f));
+            textoErrores.push_back(texto);
         }
 
-        if (obj.sprite.getGlobalBounds().findIntersection(barra->getGlobalBounds()).has_value()) {
-            obj.enBarra = true;
-            obj.sprite.setPosition(sf::Vector2f(barra->getPosition().x, barra->getPosition().y - 70.f));
-            return;
-        }
-    } else {
-        float dx = barraAngle * 0.15f;
-        obj.sprite.move(sf::Vector2f(dx, 0.f));
-        obj.sprite.setPosition(sf::Vector2f(obj.sprite.getPosition().x, barra->getPosition().y - 70.f));
+        std::string buenos[] = {"motor.png","bateria.png","transmision.png","radiador.png",
+                                "alternador.png","suspension.png","escape.png","volante.png","llanta.png"};
+        for (int i=0; i<9; i++) (void)objetosBuenosTex[i].loadFromFile("recursos/" + buenos[i]);
 
-        bool aBasura = obj.sprite.getPosition().x < 250.f;
-        bool aTaller = obj.sprite.getPosition().x > 750.f;
-        if (aBasura || aTaller) {
-            bool correcto = (aTaller && obj.esBueno) || (aBasura && !obj.esBueno);
-            if (!correcto) {
-                errores++;
-                for (int i = 0; i < 3; i++) {
-                    textoErrores[i].setFillColor(i < errores ? sf::Color::Red : sf::Color::White);
+        std::string malos[] = {"periodico.png","trapo.png","esponja.png","cepillo.png",
+                               "aceite.png","clavo.png","pintura.png","aerosol.png"};
+        for (int i=0; i<8; i++) (void)objetosMalosTex[i].loadFromFile("recursos/" + malos[i]);
+
+        (void)musica.openFromFile("recursos/musica_actividad1.ogg");
+        musica.setLooping(true);
+
+        (void)bufferFin.loadFromFile("recursos/sonido_fin.wav");
+
+        textoFin.emplace(fuente, "Fin Del Juego", 60);
+        textoFin->setFillColor(sf::Color::Red);
+        textoFin->setPosition(sf::Vector2f(300.f, 200.f));
+
+        opcionRepetir.emplace(fuente, "Repetir", 40);
+        opcionRepetir->setPosition(sf::Vector2f(350.f, 400.f));
+
+        opcionCerrar.emplace(fuente, "Cerrar", 40);
+        opcionCerrar->setPosition(sf::Vector2f(550.f, 400.f));
+
+        reiniciar();
+        musica.stop(); 
+    }
+
+    void reiniciar() {
+        errores = 0;
+        objetosProcesados = 0;
+        objetoActual.reset();
+        relojObjeto.restart();
+        finJuego = false;
+        completado = false;
+        cerrarSolicitado = false;
+        opcionSeleccionada = 0;
+        barraAngle = 0.f;
+        barra.setRotation(sf::degrees(barraAngle));
+        for (auto& txt : textoErrores) txt.setFillColor(sf::Color::White);
+        musica.play();
+    }
+
+    void generarObjeto() {
+        objetoActual.reset();
+        bool bueno = rand() % 2;
+        sf::Sprite sprite(bueno ? objetosBuenosTex[rand() % 9] : objetosMalosTex[rand() % 8]);
+        auto bounds = sprite.getLocalBounds();
+        sprite.setScale(sf::Vector2f(0.30f, 0.30f));
+        sprite.setOrigin(sf::Vector2f(bounds.size.x / 2.f, bounds.size.y / 2.f));
+        sprite.setPosition(sf::Vector2f(500.f, -80.f));
+        objetoActual.emplace(sprite, bueno);
+        relojObjeto.restart();
+    }
+
+    void actualizar() {
+        if (finJuego || completado) return;
+
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)) {
+            barraAngle = std::max(-30.f, barraAngle - 0.25f);
+            barra.setRotation(sf::degrees(barraAngle));
+        }
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)) {
+            barraAngle = std::min(barraAngle + 0.5f, 30.f);
+            barra.setRotation(sf::degrees(barraAngle));
+        }
+
+        if (!objetoActual.has_value() && relojObjeto.getElapsedTime().asSeconds() > retardoNuevoObjeto) {
+            generarObjeto();
+        }
+
+        if (objetoActual.has_value()) {
+            auto& obj = *objetoActual;
+            if (!obj.enBarra) {
+                obj.sprite.move(sf::Vector2f(0.f, velocidadCaidaObjeto));
+                if (obj.sprite.getPosition().y > 850.f) {
+                    objetoActual.reset();
+                    return;
                 }
-                if (errores >= 3) {
-                    finJuego = true;
-                    musicaActividad1.stop();
-                    if (sonidoFin) sonidoFin->play();
+                if (obj.sprite.getGlobalBounds().findIntersection(barra.getGlobalBounds()).has_value()) {
+                    obj.enBarra = true;
+                    obj.sprite.setPosition(sf::Vector2f(barra.getPosition().x, barra.getPosition().y - 70.f));
                 }
             } else {
-                objetosProcesados++;
-                if (objetosProcesados >= META_OBJETOS) {
-                    musicaActividad1.stop();
-                    cargarRosasActividad(); 
-                    actividad = 6;
+                float dx = barraAngle * 0.15f;
+                obj.sprite.move(sf::Vector2f(dx, 0.f));
+                obj.sprite.setPosition(sf::Vector2f(obj.sprite.getPosition().x, barra.getPosition().y - 70.f));
+
+                bool aBasura = obj.sprite.getPosition().x < 250.f;
+                bool aTaller = obj.sprite.getPosition().x > 750.f;
+
+                if (aBasura || aTaller) {
+                    bool correcto = (aTaller && obj.esBueno) || (aBasura && !obj.esBueno);
+                    if (!correcto) {
+                        errores++;
+                        for (int i = 0; i < 3; i++) {
+                            textoErrores[i].setFillColor(i < errores ? sf::Color::Red : sf::Color::White);
+                        }
+                        if (errores >= 3) {
+                            finJuego = true;
+                            musica.stop();
+                            sonidoFin.play();
+                        }
+                    } else {
+                        objetosProcesados++;
+                        if (objetosProcesados >= META_OBJETOS) {
+                            completado = true;
+                            musica.stop();
+                        }
+                    }
+                    objetoActual.reset();
                 }
             }
-            objetoActual.reset();
+        }
+    }
+
+    void procesarEventos(const sf::Event& evento, sf::RenderWindow& ventana) {
+        if (!finJuego) return;
+
+        if (auto key = evento.getIf<sf::Event::KeyPressed>()) {
+            if (key->code == sf::Keyboard::Key::Left || key->code == sf::Keyboard::Key::Right)
+                opcionSeleccionada = 1 - opcionSeleccionada;
+            
+            if (key->code == sf::Keyboard::Key::Enter) {
+                if (opcionSeleccionada == 0) reiniciar();
+                else cerrarSolicitado = true;
+            }
+        }
+        if (auto mouse = evento.getIf<sf::Event::MouseButtonPressed>()) {
+            if (mouse->button == sf::Mouse::Button::Left) {
+                sf::Vector2f mousePos = ventana.mapPixelToCoords(mouse->position);
+                if (opcionRepetir->getGlobalBounds().contains(mousePos)) reiniciar();
+                if (opcionCerrar->getGlobalBounds().contains(mousePos)) cerrarSolicitado = true;
+            }
+        }
+    }
+
+    void dibujar(sf::RenderWindow& ventana) {
+        ventana.draw(fondoCiudad);
+        ventana.draw(taller);
+        ventana.draw(basura);
+        ventana.draw(barra);
+        if (objetoActual.has_value()) ventana.draw(objetoActual->sprite);
+        for (const auto& txt : textoErrores) ventana.draw(txt);
+
+        if (finJuego) {
+            ventana.draw(*textoFin);
+            opcionRepetir->setFillColor(opcionSeleccionada == 0 ? sf::Color::Yellow : sf::Color::White);
+            opcionCerrar->setFillColor(opcionSeleccionada == 1 ? sf::Color::Yellow : sf::Color::White);
+            ventana.draw(*opcionRepetir);
+            ventana.draw(*opcionCerrar);
+        }
+    }
+
+    bool haCompletado() const { return completado; }
+    bool quiereCerrar() const { return cerrarSolicitado; }
+    bool estaEnFinJuego() const { return finJuego; }
+    void detenerMusica() { musica.stop(); }
+};
+
+class ActividadTuercas {
+private:
+    sf::Texture fondoLlantaTex, tuercaTex;
+    sf::Sprite fondoLlanta{fondoLlantaTex};
+    std::vector<sf::Sprite> tuercas;
+    std::vector<int> clicsTuerca;
+    
+    sf::Music musica;
+    sf::SoundBuffer bufferDrill;
+    sf::Sound sonidoDrill{bufferDrill};
+    
+    std::optional<sf::Text> textoTiempo;
+    sf::Clock relojTiempo;
+    int tiempoLimite = 20;
+    bool finJuego = false;
+    bool completado = false;
+
+    std::optional<sf::Text> textoFin;
+    std::optional<sf::Text> opcionRepetir;
+    std::optional<sf::Text> opcionCerrar;
+    int opcionSeleccionada = 0;
+    bool cerrarSolicitado = false;
+
+public:
+    void inicializar(const sf::Font& fuente) {
+        (void)fondoLlantaTex.loadFromFile("recursos/fondo_llanta.png");
+        fondoLlanta.setTexture(fondoLlantaTex, true);
+
+        auto texSize = fondoLlantaTex.getSize();
+        float scaleMax = std::max(4000.f / texSize.x, 4000.f / texSize.y) * 1.05f;
+        fondoLlanta.setScale(sf::Vector2f(scaleMax, scaleMax));
+        fondoLlanta.setPosition(sf::Vector2f(500.f - (texSize.x * scaleMax)/2.f, 
+                                             400.f - (texSize.y * scaleMax)/2.f));
+
+        (void)tuercaTex.loadFromFile("recursos/tuerca.png");
+        tuercas.clear();
+        clicsTuerca.assign(9, 0);
+
+        float cx = 500.f, cy = 400.f, radio = 250.f;
+        for (int i = 0; i < 9; ++i) {
+            sf::Sprite t(tuercaTex);
+            auto b = t.getLocalBounds();
+            t.setOrigin(sf::Vector2f(b.size.x / 2.f, b.size.y / 2.f));
+            float ang = i * (2.f * M_PI / 9.f);
+            t.setPosition(sf::Vector2f(cx + radio * std::cos(ang), cy + radio * std::sin(ang)));
+            t.setScale(sf::Vector2f(0.20f, 0.20f));
+            tuercas.push_back(t);
+        }
+
+        (void)musica.openFromFile("recursos/musica_actividad2.ogg");
+        (void)bufferDrill.loadFromFile("recursos/drill.wav");
+
+        textoTiempo.emplace(fuente, "", 40);
+        textoTiempo->setFillColor(sf::Color::White);
+        textoTiempo->setPosition(sf::Vector2f(600.f, 60.f));
+
+        textoFin.emplace(fuente, "Fin Del Juego", 60);
+        textoFin->setFillColor(sf::Color::Red);
+        textoFin->setPosition(sf::Vector2f(300.f, 200.f));
+
+        opcionRepetir.emplace(fuente, "Repetir", 40);
+        opcionRepetir->setPosition(sf::Vector2f(350.f, 400.f));
+
+        opcionCerrar.emplace(fuente, "Cerrar", 40);
+        opcionCerrar->setPosition(sf::Vector2f(550.f, 400.f));
+
+        reiniciar();
+        musica.stop(); 
+    }
+
+    void reiniciar() {
+        clicsTuerca.assign(9, 0);
+        for (auto& t : tuercas) t.setScale(sf::Vector2f(0.20f, 0.20f));
+        finJuego = false;
+        completado = false;
+        cerrarSolicitado = false;
+        opcionSeleccionada = 0;
+        
+        relojTiempo.restart();
+        musica.setLooping(true);
+        musica.play();
+    }
+
+    void actualizar() {
+        if (finJuego || completado) return;
+
+        int tiempoRestante = tiempoLimite - static_cast<int>(relojTiempo.getElapsedTime().asSeconds());
+        textoTiempo->setString("Tiempo: " + std::to_string(std::max(0, tiempoRestante)));
+
+        bool todasCompletadas = true;
+        for (int clics : clicsTuerca) {
+            if (clics < 5) { todasCompletadas = false; break; }
+        }
+
+        if (todasCompletadas) {
+            completado = true;
+            musica.stop();
+        } else if (tiempoRestante <= 0) {
+            finJuego = true;
+            musica.stop();
+        }
+    }
+
+    void procesarEventos(const sf::Event& evento, sf::RenderWindow& ventana) {
+        if (finJuego) {
+            if (auto key = evento.getIf<sf::Event::KeyPressed>()) {
+                if (key->code == sf::Keyboard::Key::Left || key->code == sf::Keyboard::Key::Right)
+                    opcionSeleccionada = 1 - opcionSeleccionada;
+                
+                if (key->code == sf::Keyboard::Key::Enter) {
+                    if (opcionSeleccionada == 0) reiniciar();
+                    else cerrarSolicitado = true;
+                }
+            }
+            if (auto mouse = evento.getIf<sf::Event::MouseButtonPressed>()) {
+                if (mouse->button == sf::Mouse::Button::Left) {
+                    sf::Vector2f mousePos = ventana.mapPixelToCoords(mouse->position);
+                    if (opcionRepetir->getGlobalBounds().contains(mousePos)) reiniciar();
+                    if (opcionCerrar->getGlobalBounds().contains(mousePos)) cerrarSolicitado = true;
+                }
+            }
             return;
         }
-    }
-}
 
-// --- Dibujar pantalla de fin ---
-void dibujarFin(sf::RenderWindow &ventana) {
-    ventana.draw(*textoFin);
-    if (opcionSeleccionada == 0) {
-        opcionRepetir->setFillColor(sf::Color::Yellow);
-        opcionCerrar->setFillColor(sf::Color::White);
-    } else {
-        opcionRepetir->setFillColor(sf::Color::White);
-        opcionCerrar->setFillColor(sf::Color::Yellow);
-    }
-    ventana.draw(*opcionRepetir);
-    ventana.draw(*opcionCerrar);
-}
+        if (completado) return;
 
-// --- Manejar eventos en pantalla de fin ---
-void manejarFin(const sf::Event &evento, sf::RenderWindow &ventana, sf::Font &fuente) {
-    if (auto key = evento.getIf<sf::Event::KeyPressed>()) {
-        if (key->code == sf::Keyboard::Key::Left || key->code == sf::Keyboard::Key::Right) {
-            opcionSeleccionada = 1 - opcionSeleccionada;
-        }
-        if (key->code == sf::Keyboard::Key::Enter) {
-            if (opcionSeleccionada == 0) {
-                // Repetir → volver al inicio
-                musicaActividad1.stop();
-                musicaActividad2.stop();
-                actividad = 0;
-                cargarActividad1(fuente); // reset
-            } else {
-                ventana.close();
-            }
-        }
-    }
-    if (auto mouse = evento.getIf<sf::Event::MouseMoved>()) {
-        sf::Vector2f mousePos = ventana.mapPixelToCoords(mouse->position);
-        if (opcionRepetir->getGlobalBounds().contains(mousePos)) {
-            opcionSeleccionada = 0;
-        } else if (opcionCerrar->getGlobalBounds().contains(mousePos)) {
-            opcionSeleccionada = 1;
-        }
-    }
-    if (auto mouse = evento.getIf<sf::Event::MouseButtonPressed>()) {
-        if (mouse->button == sf::Mouse::Button::Left) {
-            sf::Vector2f mousePos = ventana.mapPixelToCoords(mouse->position);
-            if (opcionRepetir->getGlobalBounds().contains(mousePos)) {
-                musicaActividad1.stop();
-                musicaActividad2.stop();
-                actividad = 0;
-                cargarActividad1(fuente);
-                if (musicaIntro.getStatus() != sf::SoundSource::Status::Playing) {
-                    musicaIntro.setLooping(true);
-                    musicaIntro.play();
+        if (auto mouse = evento.getIf<sf::Event::MouseButtonPressed>()) {
+            if (mouse->button == sf::Mouse::Button::Left) {
+                sf::Vector2f mousePos = ventana.mapPixelToCoords(mouse->position);
+                for (size_t i = 0; i < tuercas.size(); ++i) {
+                    if (tuercas[i].getGlobalBounds().contains(mousePos)) {
+                        if (clicsTuerca[i] >= 5) break;
+                        
+                        clicsTuerca[i]++;
+                        if (sonidoDrill.getStatus() != sf::SoundSource::Status::Playing) sonidoDrill.play();
+                        else { sonidoDrill.stop(); sonidoDrill.play(); }
+
+                        float scale = std::min(tuercas[i].getScale().x + 0.06f, 0.45f);
+                        tuercas[i].setScale(sf::Vector2f(scale, scale));
+                        break;
+                    }
                 }
             }
-            if (opcionCerrar->getGlobalBounds().contains(mousePos)) {
-                ventana.close();
-            }
         }
     }
-}
 
-void cargarActividad5() {
-    if (!fondoLlantaTex.loadFromFile("recursos/fondo_llanta.png"))
-        std::cerr << "Error cargando fondo_llanta.png\n";
-    fondoLlanta.emplace(fondoLlantaTex);
+    void dibujar(sf::RenderWindow& ventana) {
+        ventana.draw(fondoLlanta);
+        for (const auto& t : tuercas) ventana.draw(t);
+        ventana.draw(*textoTiempo);
 
-    // Escalar la llanta para cubrir la pantalla (ajusta si tu ventana cambia)
-    auto texSize = fondoLlantaTex.getSize();
-    float scaleX = 4000.f / static_cast<float>(texSize.x);
-    float scaleY = 4000.f / static_cast<float>(texSize.y);
-    float scaleMax = std::max(scaleX, scaleY) * 1.05f; // un poco sobredimensionada
-    fondoLlanta->setScale(sf::Vector2f(scaleMax, scaleMax));
-    // Centrar la llanta en la ventana
-    fondoLlanta->setPosition(sf::Vector2f(1000.f/2.f - (texSize.x*scaleMax)/2.f,
-                                          1000.f/2.f - (texSize.y*scaleMax)/2.f));
-
-    if (!tuercaTex.loadFromFile("recursos/tuerca.png"))
-        std::cerr << "Error cargando tuerca.png\n";
-    tuercas.clear();
-    clicsTuerca.assign(9, 0);
-
-    // Colocar 9 tuercas alrededor del centro, con radio mayor para evitar solapamientos
-    float cx = 1000.f / 2.f;
-    float cy = 800.f / 2.f;
-    float radio = 250.f; // mayor radio para que no se toquen
-    float initialScale = 0.20f; // tuercas pequeñas inicialmente
-
-    for (int i = 0; i < 9; ++i) {
-        sf::Sprite t(tuercaTex);
-        // origen al centro para que el escalado sea centrado
-       auto b = t.getLocalBounds();
-t.setOrigin(sf::Vector2f(b.size.x / 2.f, b.size.y / 2.f));
-
-        float ang = i * (2.f * M_PI / 9.f);
-        t.setPosition(sf::Vector2f(cx + radio * std::cos(ang), cy + radio * std::sin(ang)));
-        t.setScale(sf::Vector2f(initialScale, initialScale));
-        tuercas.push_back(t);
+        if (finJuego) {
+            ventana.draw(*textoFin);
+            opcionRepetir->setFillColor(opcionSeleccionada == 0 ? sf::Color::Yellow : sf::Color::White);
+            opcionCerrar->setFillColor(opcionSeleccionada == 1 ? sf::Color::Yellow : sf::Color::White);
+            ventana.draw(*opcionRepetir);
+            ventana.draw(*opcionCerrar);
+        }
     }
 
-    if (!musicaActividad2.openFromFile("recursos/musica_actividad2.ogg"))
-        std::cerr << "Error cargando musica_actividad2.ogg\n";
-    musicaActividad2.setLooping(true);
-    musicaActividad2.play();
+    bool haCompletado() const { return completado; }
+    bool haPerdido() const { return finJuego; }
+    bool quiereCerrar() const { return cerrarSolicitado; }
+};
 
-    if (!bufferDrill.loadFromFile("recursos/drill.wav"))
-        std::cerr << "Error cargando drill.wav\n";
-    sonidoDrill.emplace(bufferDrill);
+class JuegoMotor {
+private:
+    sf::RenderWindow ventana;
+    GameState estadoActual;
+    
+    sf::Font fuentePrincipal;
+    sf::Font fuenteErrores;
 
-    if (!fuenteReloj.openFromFile("recursos/reloj.ttf"))
-        std::cerr << "Error cargando reloj.ttf\n";
-    textoTiempo.emplace(fuenteReloj, "", 40);
-    textoTiempo->setFillColor(sf::Color::White);
-    // mover el texto del tiempo un poco a la izquierda (ajusta x a tu gusto)
-    textoTiempo->setPosition(sf::Vector2f(600.f, 60.f));
+    sf::Texture fondoIntroTex;
+    sf::Sprite fondoIntro{fondoIntroTex};
+    
+    std::optional<sf::Text> titulo;
+    std::optional<sf::Text> botonPlay;
+    std::optional<sf::Text> textoAutoMenu;
+    
+    sf::Music musicaIntro, musicaAutoMenu;
+    sf::SoundBuffer bufferBurbuja;
+    sf::Sound sonidoBurbuja{bufferBurbuja};
 
-    relojTiempo.restart();
-    finJuego5 = false;
-}
+    int autoSeleccionado = 0;
+    sf::Texture autosTex[5];
+    std::vector<sf::Sprite> autos;
+    std::vector<sf::RectangleShape> marcos; 
+    sf::Clock relojLED;
+    bool colorRojo = true;
 
+    std::vector<sf::Texture> cutsceneTex;
+    std::optional<sf::Sprite> cutsceneSprite;
+    sf::Clock cutsceneReloj;
+    int cutsceneIndex = 0;
+    sf::Music musicaBanderas;
 
-int main() {
-    sf::RenderWindow ventana(sf::VideoMode({1000, 800}), "Dise\u00F1a tu auto de carreras");
+    ActividadEquilibrio minijuegoEquilibrio;
+    ActividadTuercas minijuegoTuercas;
 
-    // Fondo Intro
-    sf::Texture fondoTex;
-    if (!fondoTex.loadFromFile("recursos/intro.png")) return -1;
-    sf::Sprite fondo(fondoTex);
-    fondo.setScale(sf::Vector2f(0.7f, 0.7f));
-    fondo.setPosition(sf::Vector2f(0.f, 60.f));
-
-    // Fuente y textos
-    sf::Font fuente;
-    if (!fuente.openFromFile("recursos/arial.ttf")) return -1;
-    if (fuenteX.openFromFile("recursos/x.ttf")) {
-        fuenteErrorFont = &fuenteX;
-    } else {
-        fuenteErrorFont = &fuente;
+public:
+    JuegoMotor() : ventana(sf::VideoMode({1000, 800}), "Disena tu auto de carreras"), estadoActual(GameState::Intro) {
+        cargarRecursosGlobales();
+        inicializarMenu();
+        
+        minijuegoEquilibrio.inicializar(fuentePrincipal, fuenteErrores);
+        minijuegoTuercas.inicializar(fuentePrincipal);
     }
 
-    sf::Text titulo(fuente, sf::String(L"Dise\u00F1a tu auto de carreras"), 50);
-    titulo.setFillColor(sf::Color::White);
-    titulo.setStyle(sf::Text::Bold);
-    titulo.setPosition(sf::Vector2f(
-        ventana.getSize().x / 2.f - titulo.getLocalBounds().size.x / 2.f,
-        150.f
-    ));
+    void run() {
+        while (ventana.isOpen()) {
+            procesarEventos();
+            actualizar();
+            dibujar();
+        }
+    }
 
-    sf::Text botonPlay(fuente, sf::String(L"PLAY"), 70);
-    botonPlay.setFillColor(sf::Color::Yellow);
-    botonPlay.setPosition(sf::Vector2f(
-        ventana.getSize().x / 2.f - botonPlay.getLocalBounds().size.x / 2.f,
-        400.f
-    ));
+private:
+    void cargarRecursosGlobales() {
+        (void)fuentePrincipal.openFromFile("recursos/arial.ttf");
 
-    // Texto AutoMenu
-    sf::Text textoAutoMenu(fuente, sf::String(L"Selecciona tu auto de carreras"), 40);
-    textoAutoMenu.setFillColor(sf::Color::Blue);
-    textoAutoMenu.setStyle(sf::Text::Bold);
-    textoAutoMenu.setPosition(sf::Vector2f(
-        ventana.getSize().x / 2.f - textoAutoMenu.getLocalBounds().size.x / 2.f,
-        50.f
-    ));
+        if (!fuenteErrores.openFromFile("recursos/x.ttf")) {
+            (void)fuenteErrores.openFromFile("recursos/arial.ttf");
+        }
+        (void)bufferBurbuja.loadFromFile("recursos/burbuja.wav");
+    }
 
-    // Música Intro
-    if (musicaIntro.openFromFile("recursos/musica_intro.ogg")) {
+    void inicializarMenu() {
+        (void)fondoIntroTex.loadFromFile("recursos/intro.png");
+        fondoIntro.setTexture(fondoIntroTex, true);
+        fondoIntro.setScale(sf::Vector2f(0.7f, 0.7f));
+        fondoIntro.setPosition(sf::Vector2f(0.f, 60.f));
+
+        titulo.emplace(fuentePrincipal, "Disena tu auto de carreras", 50);
+        titulo->setFillColor(sf::Color::White);
+        titulo->setStyle(sf::Text::Bold);
+        titulo->setPosition(sf::Vector2f(ventana.getSize().x / 2.f - titulo->getLocalBounds().size.x / 2.f, 150.f));
+
+        botonPlay.emplace(fuentePrincipal, "PLAY", 70);
+        botonPlay->setFillColor(sf::Color::Yellow);
+        botonPlay->setPosition(sf::Vector2f(ventana.getSize().x / 2.f - botonPlay->getLocalBounds().size.x / 2.f, 400.f));
+
+        textoAutoMenu.emplace(fuentePrincipal, "Selecciona tu auto de carreras", 40);
+        textoAutoMenu->setStyle(sf::Text::Bold);
+        textoAutoMenu->setPosition(sf::Vector2f(ventana.getSize().x / 2.f - textoAutoMenu->getLocalBounds().size.x / 2.f, 50.f));
+
+        marcos.clear();
+        for (int i = 0; i < 5; i++) {
+            (void)autosTex[i].loadFromFile("recursos/auto" + std::to_string(i+1) + ".jpg");
+            sf::Sprite sprite(autosTex[i]);
+            sprite.setScale(sf::Vector2f(0.2f, 0.2f));
+            sprite.setPosition(sf::Vector2f(i < 3 ? 150.f + i*250.f : 250.f + (i-3)*250.f, i < 3 ? 150.f : 450.f));
+            autos.push_back(sprite);
+
+            sf::RectangleShape marco(sf::Vector2f(sprite.getGlobalBounds().size.x + 10, sprite.getGlobalBounds().size.y + 10));
+            marco.setPosition(sf::Vector2f(sprite.getPosition().x - 5, sprite.getPosition().y - 5));
+            marco.setFillColor(sf::Color::Transparent);
+            marco.setOutlineThickness(5);
+            marcos.push_back(marco);
+        }
+
+        (void)musicaIntro.openFromFile("recursos/musica_intro.ogg");
         musicaIntro.setLooping(true);
         musicaIntro.play();
     }
 
-    // Sonido burbuja
-    if (!bufferBurbuja.loadFromFile("recursos/burbuja.wav")) return -1;
-    sonidoBurbuja.emplace(bufferBurbuja);
-
-    // Cargar autos
-    for (int i = 0; i < 5; i++) {
-        std::string nombre = "recursos/auto" + std::to_string(i+1) + ".jpg";
-        if (!autosTex[i].loadFromFile(nombre)) return -1;
-
-        sf::Sprite sprite(autosTex[i]);
-        sprite.setScale(sf::Vector2f(0.2f, 0.2f));
-
-        if (i < 3)
-            sprite.setPosition(sf::Vector2f(150.f + i*250.f, 150.f));
-        else
-            sprite.setPosition(sf::Vector2f(250.f + (i-3)*250.f, 450.f));
-
-        autos.push_back(sprite);
-
-        // Marco LED
-        sf::FloatRect bounds = autos[i].getGlobalBounds();
-        marcos[i].setSize(sf::Vector2f(bounds.size.x + 10, bounds.size.y + 10));
-        marcos[i].setPosition(sf::Vector2f(
-            autos[i].getPosition().x - 5,
-            autos[i].getPosition().y - 5
-        ));
-        marcos[i].setFillColor(sf::Color::Transparent);
-        marcos[i].setOutlineThickness(5);
-        marcos[i].setOutlineColor(sf::Color::Blue);
+    void cargarCutscene(const std::string& prefijo, int cantidad) {
+        cutsceneTex.clear();
+        cutsceneTex.resize(cantidad);
+        for (int i = 0; i < cantidad; i++) {
+            (void)cutsceneTex[i].loadFromFile("recursos/" + prefijo + std::to_string(i+1) + ".png");
+        }
+        
+        if (!cutsceneSprite.has_value()) {
+            cutsceneSprite.emplace(cutsceneTex[0]);
+        } else {
+            cutsceneSprite->setTexture(cutsceneTex[0], true);
+        }
+        
+        cutsceneSprite->setScale(sf::Vector2f(0.6f, 0.6f));
+        cutsceneSprite->setPosition(sf::Vector2f(0.f, 40.f));
+        cutsceneIndex = 0;
+        cutsceneReloj.restart();
     }
 
-    while (ventana.isOpen()) {
+    void procesarEventos() {
         while (auto evento = ventana.pollEvent()) {
             if (evento->is<sf::Event::Closed>()) {
                 ventana.close();
                 continue;
             }
 
-            if (actividad == 0) {
-                if (auto key = evento->getIf<sf::Event::KeyPressed>(); key) {
-                    if (key->code == sf::Keyboard::Key::Enter) {
-                        musicaIntro.stop();
-                        if (musicaAutoMenu.openFromFile("recursos/musica_automenu.ogg")) {
-                            musicaAutoMenu.setLooping(true);
-                            musicaAutoMenu.play();
-                        }
-                        if (sonidoBurbuja) sonidoBurbuja->play();
-                        actividad = 1;
-                        enAutoMenu = true;
-                    }
-                }
-                if (auto mouse = evento->getIf<sf::Event::MouseButtonPressed>(); mouse) {
-                    if (mouse->button == sf::Mouse::Button::Left) {
-                        sf::Vector2f mousePos = ventana.mapPixelToCoords(mouse->position);
-                        if (botonPlay.getGlobalBounds().contains(mousePos)) {
-                            musicaIntro.stop();
-                            if (musicaAutoMenu.openFromFile("recursos/musica_automenu.ogg")) {
-                                musicaAutoMenu.setLooping(true);
-                                musicaAutoMenu.play();
-                            }
-                            if (sonidoBurbuja) sonidoBurbuja->play();
-                            actividad = 1;
-                            enAutoMenu = true;
-                        }
-                    }
-                }
-            } else if (actividad == 1) {
-                if (auto key = evento->getIf<sf::Event::KeyPressed>(); key) {
-                    if (key->code == sf::Keyboard::Key::Left)
-                        seleccionado = (seleccionado + 4) % 5;
-                    if (key->code == sf::Keyboard::Key::Right)
-                        seleccionado = (seleccionado + 1) % 5;
-                    if (key->code == sf::Keyboard::Key::Enter) {
-                        if (sonidoBurbuja) sonidoBurbuja->play();
-                        musicaAutoMenu.stop();
-                        // Pasar a Reglas
-                        for (int i = 0; i < 4; i++) {
-                            std::string nombre = "recursos/imagen_reglas" + std::to_string(i+1) + ".png";
-                            if (!reglasTex[i].loadFromFile(nombre)) {
-                                std::cerr << "Error: no se pudo cargar " << nombre << "\n";
-                            }
-                        }
-                        reglasSprite.emplace(reglasTex[0]);
-                        reglasSprite->setScale(sf::Vector2f(0.6f, 0.6f));
-                        reglasSprite->setPosition(sf::Vector2f(-5.f, 40.f));
-
-                        reglaActual = 0;
-                        actividad = 2;
-                    }
-                }
-                if (auto mouse = evento->getIf<sf::Event::MouseButtonPressed>(); mouse) {
-                    if (mouse->button == sf::Mouse::Button::Left) {
-                        sf::Vector2f mousePos = ventana.mapPixelToCoords(mouse->position);
-                        for (int i = 0; i < 5; i++) {
-                            if (autos[i].getGlobalBounds().contains(mousePos)) {
-                                seleccionado = i;
-                                if (sonidoBurbuja) sonidoBurbuja->play();
-                                musicaAutoMenu.stop();
-                                // Pasar a Reglas
-                                for (int j = 0; j < 4; j++) {
-                                    std::string nombre = "recursos/imagen_reglas" + std::to_string(j+1) + ".png";
-                                    if (!reglasTex[j].loadFromFile(nombre)) {
-                                        std::cerr << "Error: no se pudo cargar " << nombre << "\n";
-                                    }
-                                }
-                                reglasSprite.emplace(reglasTex[0]);
-                                reglasSprite->setScale(sf::Vector2f(0.6f, 0.6f));
-                                reglasSprite->setPosition(sf::Vector2f(-5.f, 40.f));
-                                actividad = 2;
-                            }
-                        }
-                    }
-                }
-            } else if (actividad == 3 && finJuego) {
-                manejarFin(*evento, ventana, fuente);
-            }
-            else if (actividad == 5 && finJuego5) {
-    manejarFin(*evento, ventana, fuente);
-}
-
-
-            else if (actividad == 6) {
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Enter)) {
-        actividad = 5; // ahora sí pasa a la Actividad 5 (tuercas)
-        cargarActividad5();
-    }
-}
-// Manejo de clics en Actividad 5 (tuercas) — dentro del while(evento)
-if (actividad == 5) {
-    if (auto mouse = evento->getIf<sf::Event::MouseButtonPressed>()) {
-        if (mouse->button == sf::Mouse::Button::Left) {
-            sf::Vector2f mousePos = ventana.mapPixelToCoords(mouse->position);
-            for (size_t i = 0; i < tuercas.size(); ++i) {
-                if (tuercas[i].getGlobalBounds().contains(mousePos)) {
-                    // si ya completó 5 clics, ignorar
-                    if (clicsTuerca[i] >= 5) break;
-
-                    // incrementar contador
-                    ++clicsTuerca[i];
-
-                    // reproducir sonido solo si no está ya en reproducción
-                    if (sonidoDrill) {
-                        if (sonidoDrill->getStatus() != sf::SoundSource::Status::Playing)
-                            sonidoDrill->play();
-                        else {
-                            // reiniciar para efecto inmediato (opcional)
-                            sonidoDrill->stop();
-                            sonidoDrill->play();
-                        }
-                    }
-
-                    // aumentar tamaño de forma controlada hasta un máximo
-                    float maxScale = 0.45f; // escala máxima permitida
-                    float growPerClick = 0.06f; // cuánto crecer por clic
-                    sf::Vector2f cur = tuercas[i].getScale();
-                    float newScaleX = std::min(cur.x + growPerClick, maxScale);
-                    float newScaleY = std::min(cur.y + growPerClick, maxScale);
-                    tuercas[i].setScale(sf::Vector2f(newScaleX, newScaleY));
-
-                    // si llegó a 5 clics, detener sonido (si quieres un "clic final")
-                    if (clicsTuerca[i] >= 5) {
-                        if (sonidoDrill) sonidoDrill->stop();
-                    }
-
-                    // evitar que un mismo clic afecte varias tuercas
+            switch (estadoActual) {
+                case GameState::Intro:
+                    if (auto key = evento->getIf<sf::Event::KeyPressed>(); key && key->code == sf::Keyboard::Key::Enter)
+                        iniciarAutoMenu();
+                    if (auto mouse = evento->getIf<sf::Event::MouseButtonPressed>(); mouse && mouse->button == sf::Mouse::Button::Left)
+                        if (botonPlay->getGlobalBounds().contains(ventana.mapPixelToCoords(mouse->position)))
+                            iniciarAutoMenu();
                     break;
-                }
-            }
-        }
-    }
-}
 
-
-
-        }
-
-        // Lógica de juego por pantalla
-        if (actividad == 3) {
-            if (!finJuego) {
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)) {
-                    barraAngle = std::max(-30.f, barraAngle - 0.25f);
-                    barra->setRotation(sf::degrees(barraAngle));
-                }
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)) {
-                    if (barraAngle < 30.f) {
-                        barraAngle = std::min(barraAngle + 0.5f, 30.f);
-                        barra->setRotation(sf::degrees(barraAngle));
+                case GameState::AutoMenu:
+                    if (auto key = evento->getIf<sf::Event::KeyPressed>()) {
+                        if (key->code == sf::Keyboard::Key::Left) autoSeleccionado = (autoSeleccionado + 4) % 5;
+                        if (key->code == sf::Keyboard::Key::Right) autoSeleccionado = (autoSeleccionado + 1) % 5;
+                        if (key->code == sf::Keyboard::Key::Enter) iniciarReglas();
                     }
-                }
-                if (!objetoActual.has_value() && relojObjeto.getElapsedTime().asSeconds() > retardoNuevoObjeto) {
-                    generarObjeto();
-                }
-                if (musicaActividad1.getStatus() != sf::SoundSource::Status::Playing) {
-                    musicaActividad1.play();
-                }
-                if (objetosProcesados >= META_OBJETOS) {
-    musicaActividad1.stop();
-    cargarRosasActividad();
-    actividad = 6; // nueva pantalla de rosas
+                    if (auto mouse = evento->getIf<sf::Event::MouseButtonPressed>(); mouse && mouse->button == sf::Mouse::Button::Left) {
+                        sf::Vector2f pos = ventana.mapPixelToCoords(mouse->position);
+                        for (int i = 0; i < 5; i++) {
+                            if (autos[i].getGlobalBounds().contains(pos)) {
+                                autoSeleccionado = i;
+                                iniciarReglas();
+                            }
+                        }
+                    }
+                    break;
 
-}else if (actividad == 7) {
-    if (relojBanderas.getElapsedTime().asSeconds() > 2.0f) {
-        banderaActual = (banderaActual+1)%6;
-        banderasSprite->setTexture(banderasTex[banderaActual]);
-        relojBanderas.restart();
-    }
-    ventana.draw(*banderasSprite);
+                case GameState::Reglas:
+                    if (auto key = evento->getIf<sf::Event::KeyPressed>(); key && key->code == sf::Keyboard::Key::Enter) {
+                        estadoActual = GameState::Actividad1;
+                        minijuegoEquilibrio.reiniciar();
+                    }
+                    break;
 
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Enter)) {
-    musicaBanderas.stop();   // detener música de banderas
-    actividad = 8;           // pasar a la siguiente actividad
-    // cargarActividad8();    // si ya tienes definida la carrera
-}
+                case GameState::Actividad1:
+                    minijuegoEquilibrio.procesarEventos(*evento, ventana);
+                    break;
 
-    // Avanzar a la carrera con Enter
+                case GameState::Rosas:
+                    if (auto key = evento->getIf<sf::Event::KeyPressed>(); key && key->code == sf::Keyboard::Key::Enter) {
+                        estadoActual = GameState::Actividad5;
+                        minijuegoTuercas.reiniciar();
+                    }
+                    break;
 
-}
-                actualizarObjetos();
+                case GameState::Actividad5:
+                    minijuegoTuercas.procesarEventos(*evento, ventana);
+                    break;
 
+                case GameState::Banderas:
+                    if (auto key = evento->getIf<sf::Event::KeyPressed>(); key && key->code == sf::Keyboard::Key::Enter) {
+                        musicaBanderas.stop();
+                        ventana.close(); 
+                    }
+                    break;
             }
         }
+    }
 
-        // Dibujar
-        ventana.clear();
-        if (actividad == 0) {
-            ventana.draw(fondo);
-            ventana.draw(titulo);
-            ventana.draw(botonPlay);
-        } else if (actividad == 1) {
-            if (relojLED.getElapsedTime().asSeconds() > 0.5f) {
-                colorRojo = !colorRojo;
-                relojLED.restart();
-            }
-            textoAutoMenu.setFillColor(colorRojo ? sf::Color::Red : sf::Color::Blue);
-            ventana.draw(textoAutoMenu);
-            for (int i = 0; i < 5; i++) {
-                if (i == seleccionado) {
-                    marcos[i].setOutlineColor(colorRojo ? sf::Color::Red : sf::Color::Blue);
-                    marcos[i].setOutlineThickness(8);
-                } else {
-                    marcos[i].setOutlineColor(sf::Color::Blue);
-                    marcos[i].setOutlineThickness(5);
+    void actualizar() {
+        switch (estadoActual) {
+            case GameState::AutoMenu:
+                if (relojLED.getElapsedTime().asSeconds() > 0.5f) {
+                    colorRojo = !colorRojo;
+                    relojLED.restart();
                 }
-                ventana.draw(marcos[i]);
-                ventana.draw(autos[i]);
-            }
-        } else if (actividad == 2) {
-            if (relojReglas.getElapsedTime().asSeconds() > 2.0f) {
-                reglaActual = (reglaActual + 1) % 4;
-                reglasSprite->setTexture(reglasTex[reglaActual]);
-                relojReglas.restart();
-            }
-            ventana.draw(*reglasSprite);
+                break;
 
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Enter)) {
-                actividad = 3;
-                cargarActividad1(fuente);
-            }
-        } else if (actividad == 3) {
-    if (!finJuego) {
-        ventana.draw(*fondoCiudad);
-        ventana.draw(*taller);
-        ventana.draw(*basura);
-        ventana.draw(*barra);
-        if (objetoActual.has_value()) ventana.draw(objetoActual->sprite);
-        for (int i = 0; i < 3; i++) ventana.draw(textoErrores[i]);
-    } else {
-        dibujarFin(ventana);  // <-- aquí dibujas "Fin del Juego / Repetir / Cerrar"
-    }
-}else if (actividad == 6) {
-    if (relojRosas.getElapsedTime().asSeconds() > 2.0f) {
-        rosaActual = (rosaActual+1)%3;
-        rosasSprite->setTexture(rosasTex[rosaActual]);
-        relojRosas.restart();
-    }
-    ventana.draw(*rosasSprite);
-}
-else if (actividad == 5) {
-int tiempoRestante = tiempoLimite - relojTiempo.getElapsedTime().asSeconds();
-textoTiempo->setString(std::string("Tiempo: ") + std::to_string(std::max(0, tiempoRestante)));
+            case GameState::Reglas:
+            case GameState::Rosas:
+            case GameState::Banderas:
+                if (cutsceneReloj.getElapsedTime().asSeconds() > 2.0f) {
+                    cutsceneIndex = (cutsceneIndex + 1) % cutsceneTex.size();
+                    cutsceneSprite->setTexture(cutsceneTex[cutsceneIndex], true);
+                    cutsceneReloj.restart();
+                }
+                if (estadoActual == GameState::Banderas && musicaBanderas.getStatus() == sf::SoundSource::Status::Stopped) {
+                    ventana.close();
+                }
+                break;
 
-// Verificar si todas las tuercas ya fueron clicadas 5 veces
-bool todasCompletadas = true;
-for (size_t i = 0; i < clicsTuerca.size(); ++i) {
-    if (clicsTuerca[i] < 5) {
-        todasCompletadas = false;
+            case GameState::Actividad1:
+                minijuegoEquilibrio.actualizar();
+                if (minijuegoEquilibrio.quiereCerrar()) ventana.close();
+                if (minijuegoEquilibrio.haCompletado()) {
+                    estadoActual = GameState::Rosas;
+                    cargarCutscene("rosas", 3);
+                }
+                break;
 
-        break;
-    }
-}
-
-if (todasCompletadas && !finJuego5) {
-    // Pausar tiempo y pasar a la siguiente actividad
-    musicaActividad2.stop();
-    actividad = 7; // penúltima actividad
-    cargarBanderasActividad();
-}
-
-    if (tiempoRestante <= 0 && !finJuego5) {
-        finJuego5 = true;
-        musicaActividad2.stop();
-        if (sonidoFin) sonidoFin->play();
+            case GameState::Actividad5:
+                minijuegoTuercas.actualizar();
+                if (minijuegoTuercas.quiereCerrar()) ventana.close(); // Integración añadida
+                if (minijuegoTuercas.haCompletado()) {
+                    estadoActual = GameState::Banderas;
+                    cargarCutscene("banderas", 6);
+                    (void)musicaBanderas.openFromFile("recursos/musica_banderas.ogg");
+                    musicaBanderas.play();
+                }
+                break;
+        }
     }
 
-    ventana.draw(*fondoLlanta);
-    for(auto &t:tuercas) ventana.draw(t);
-    ventana.draw(*textoTiempo);
-    if (finJuego5) {
-        dibujarFin(ventana);
-    }
-}else if (actividad == 7) {
-    if (relojBanderas.getElapsedTime().asSeconds() > 2.0f) {
-        banderaActual = (banderaActual+1)%6;
-        banderasSprite->setTexture(banderasTex[banderaActual]);
-        relojBanderas.restart();
-    }
-    ventana.draw(*banderasSprite);
+    void dibujar() {
+        ventana.clear();
 
-    // Aquí puedes decidir cómo avanzar: por ejemplo, con Enter pasar a otra actividad
-   if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Enter)) {
-        musicaBanderas.stop();
-        ventana.close(); // o actividad = 8 si quieres continuar
-    }
+        switch (estadoActual) {
+            case GameState::Intro:
+                ventana.draw(fondoIntro);
+                ventana.draw(*titulo);
+                ventana.draw(*botonPlay);
+                break;
 
-    // Caso 2: la canción termina sola
-    if (musicaBanderas.getStatus() == sf::SoundSource::Status::Stopped) {
-        ventana.close(); // o actividad = 8
-    }
-}
+            case GameState::AutoMenu:
+                textoAutoMenu->setFillColor(colorRojo ? sf::Color::Red : sf::Color::Blue);
+                ventana.draw(*textoAutoMenu);
+                for (int i = 0; i < 5; i++) {
+                    marcos[i].setOutlineColor(i == autoSeleccionado ? (colorRojo ? sf::Color::Red : sf::Color::Blue) : sf::Color::Blue);
+                    marcos[i].setOutlineThickness(i == autoSeleccionado ? 8 : 5);
+                    ventana.draw(marcos[i]);
+                    ventana.draw(autos[i]);
+                }
+                break;
 
+            case GameState::Reglas:
+            case GameState::Rosas:
+            case GameState::Banderas:
+                if (cutsceneSprite.has_value()) {
+                    ventana.draw(*cutsceneSprite);
+                }
+                break;
 
+            case GameState::Actividad1:
+                minijuegoEquilibrio.dibujar(ventana);
+                break;
+
+            case GameState::Actividad5:
+                minijuegoTuercas.dibujar(ventana);
+                break;
+        }
 
         ventana.display();
     }
-  return 0;
+
+    void iniciarAutoMenu() {
+        sonidoBurbuja.play();
+        musicaIntro.stop();
+        (void)musicaAutoMenu.openFromFile("recursos/musica_automenu.ogg");
+        musicaAutoMenu.setLooping(true);
+        musicaAutoMenu.play();
+        estadoActual = GameState::AutoMenu;
+    }
+
+    void iniciarReglas() {
+        sonidoBurbuja.play();
+        musicaAutoMenu.stop();
+        cargarCutscene("imagen_reglas", 4);
+        estadoActual = GameState::Reglas;
+    }
+};
+
+int main() {
+    std::srand(static_cast<unsigned int>(std::time(nullptr))); // Semilla aleatoria
+    JuegoMotor juego;
+    juego.run();
+    return 0;
 }

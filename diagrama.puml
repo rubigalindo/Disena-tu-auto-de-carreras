@@ -1,29 +1,94 @@
 @startuml
-Class Juego
-Juego *-- Bienvenida
-class Bienvenida
-class ImagenFondoBienvenida
-Bienvenida *-- ImagenFondoBienvenida
-class MusicaBienvenida
-Bienvenida *-- MusicaBienvenida
-class BotonPlay
-Bienvenida *-- BotonPlay
-Class SonidoBurbuja
-BotonPlay *-- SonidoBurbuja
-Class Usuario
-Usuario o-- Juego
+Class GameState
+Class ObjetoMecanico
+Class ActividadEquilibrio
+Class ActividadTuercas
+Class JuegoMotor
+Class Rosas
+Class Banderas
+Class Reglas
 Class AutoMenu
-Juego *-- AutoMenu
-Class Auto
-AutoMenu *-- "5"Auto
-Class NissanSkyline
-Class ToyotaSupraMk4
-Class MazdaRX-7FD3S
-NissanSkyline --|> Auto
-ToyotaSupraMk4 --|> Auto
-MazdaRX-7FD3S --|> Auto
-Class MitsubishiEclipse
-MitsubishiEclipse --|> Auto
-Class DodgeChargerR/T1970
-DodgeChargerR/T1970 --|> Auto
+Class Intro
+Class Actividad1
+Class Actividad5
+
+
+JuegoMotor *-- "1" GameState
+JuegoMotor *-- "1" ActividadEquilibrio
+JuegoMotor *-- "1" ActividadTuercas
+ActividadEquilibrio o-- "0..1" ObjetoMecanico
+
+Class GameState {
+  +Intro
+  +AutoMenu
+  +Reglas
+  +Actividad1
+  +Actividad5
+  +Rosas
+  +Banderas
+}
+
+Class ObjetoMecanico {
+  +sprite : sf::Sprite
+  +esBueno : bool
+  +enBarra : bool
+  +ObjetoMecanico(sf::Sprite, bool)
+}
+
+Class ActividadEquilibrio {
+  -barraAngle : float
+  -velocidadCaidaObjeto : float
+  -retardoNuevoObjeto : float
+  -errores : int
+  -objetosProcesados : int
+  -META_OBJETOS : int
+  -finJuego : bool
+  -completado : bool
+  -cerrarSolicitado : bool
+  +inicializar(sf::Font, sf::Font)
+  +reiniciar()
+  +generarObjeto()
+  +actualizar()
+  +procesarEventos(sf::Event, sf::RenderWindow)
+  +dibujar(sf::RenderWindow)
+  +haCompletado() : bool
+  +quiereCerrar() : bool
+  +estaEnFinJuego() : bool
+  +detenerMusica()
+}
+
+Class ActividadTuercas {
+  -clicsTuerca : std::vector<int>
+  -tiempoLimite : int
+  -finJuego : bool
+  -completado : bool
+  -cerrarSolicitado : bool
+  +inicializar(sf::Font)
+  +reiniciar()
+  +actualizar()
+  +procesarEventos(sf::Event, sf::RenderWindow)
+  +dibujar(sf::RenderWindow)
+  +haCompletado() : bool
+  +haPerdido() : bool
+  +quiereCerrar() : bool
+}
+
+Class JuegoMotor {
+  -ventana : sf::RenderWindow
+  -autoSeleccionado : int
+  -cutsceneIndex : int
+  -colorRojo : bool
+  +JuegoMotor()
+  +run()
+  -cargarRecursosGlobales()
+  -inicializarMenu()
+  -cargarCutscene(std::string, int)
+  -procesarEventos()
+  -actualizar()
+  -dibujar()
+  -iniciarAutoMenu()
+  -iniciarReglas()
+}
 @enduml
+
+```
