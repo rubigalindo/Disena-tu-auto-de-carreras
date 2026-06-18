@@ -733,15 +733,17 @@ if (actividad == 5) {
                 cargarActividad1(fuente);
             }
         } else if (actividad == 3) {
-            if (!finJuego) {
-                ventana.draw(*fondoCiudad);
-                ventana.draw(*taller);
-                ventana.draw(*basura);
-                ventana.draw(*barra);
-                if (objetoActual.has_value()) ventana.draw(objetoActual->sprite);
-                for (int i = 0; i < 3; i++) ventana.draw(textoErrores[i]);
-            } 
-        }else if (actividad == 6) {
+    if (!finJuego) {
+        ventana.draw(*fondoCiudad);
+        ventana.draw(*taller);
+        ventana.draw(*basura);
+        ventana.draw(*barra);
+        if (objetoActual.has_value()) ventana.draw(objetoActual->sprite);
+        for (int i = 0; i < 3; i++) ventana.draw(textoErrores[i]);
+    } else {
+        dibujarFin(ventana);  // <-- aquí dibujas "Fin del Juego / Repetir / Cerrar"
+    }
+}else if (actividad == 6) {
     if (relojRosas.getElapsedTime().asSeconds() > 2.0f) {
         rosaActual = (rosaActual+1)%3;
         rosasSprite->setTexture(rosasTex[rosaActual]);
@@ -779,7 +781,6 @@ if (todasCompletadas && !finJuego5) {
     ventana.draw(*fondoLlanta);
     for(auto &t:tuercas) ventana.draw(t);
     ventana.draw(*textoTiempo);
-
     if (finJuego5) {
         dibujarFin(ventana);
     }
